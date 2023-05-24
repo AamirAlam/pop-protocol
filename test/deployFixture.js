@@ -1,55 +1,39 @@
 const { ethers } = require("hardhat");
-const { toWei } = require("./helpers");
 
 // prepare dummy contract data
 async function deployFixture() {
-  const usdtFact = await ethers.getContractFactory("FaucetToken");
-  const usdtContract = await usdtFact.deploy();
-  await usdtContract.deployed();
+  //  token contract
+  const tokenFact = await ethers.getContractFactory("Token");
+  const tokenContract = await tokenFact.deploy();
+  await tokenContract.deployed();
 
-  const sleepFact = await ethers.getContractFactory("SleepToken");
-  const sleepContract = await sleepFact.deploy();
-  await sleepContract.deployed();
+  //  trading contract
+  const tradingFact = await ethers.getContractFactory("Trading");
+  const tradingContract = await tradingFact.deploy(tokenContract.address);
+  await tradingContract.deployed();
 
-  await sleepContract.mint(toWei("1000000"));
-  await usdtContract.mint(toWei("1000000"));
+  //  nft contract
+  const nftFact = await ethers.getContractFactory("NFT");
+  const nftContract = await nftFact.deploy();
+  await nftContract.deployed();
 
-  console.log("usdt contrac ", usdtContract.address);
-  const routerFactory = await ethers.getContractFactory("TestSwap");
-  const routerContract = await routerFactory.deploy(
-    usdtContract.address,
-    sleepContract.address
-  );
-  await routerContract.deployed();
+  // 4. staking contract
+  const stakingFact = await ethers.getContractFactory("Staking");
+  const stakingContract = await stakingFact.deploy();
+  await stakingContract.deployed();
 
-  // setup dummy swaps router with some tokens
-  await sleepContract.approve(routerContract.address, toWei("1000000"));
-  await routerContract.depositTokens(toWei("100000"));
-
-  const accumulationFactory = await ethers.getContractFactory(
-    "SleepSwapAccumulation"
-  );
-
-  const [owner, addr1, addr2] = await ethers.getSigners();
-
-  const accumulationContract = await accumulationFactory.deploy(
-    usdtContract.address,
-    routerContract.address
-  );
-
-  await accumulationContract.deployed();
-
-  await accumulationContract.enableTestMode();
+  // 5. Pool contract
+  const poolFact = await ethers.getContractFactory("Pool");
+  const poolContract = await poolFact.deploy();
+  await poolContract.deployed();
 
   // Fixtures can return anything you consider useful for your tests
   return {
-    accumulationContract,
-    routerContract,
-    usdtContract,
-    sleepContract,
-    owner,
-    addr1,
-    addr2,
+    tradingContract,
+    tokenContract,
+    nftContract,
+    stakingContract,
+    poolContract,
   };
 }
 

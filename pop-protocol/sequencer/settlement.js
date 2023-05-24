@@ -1,7 +1,12 @@
-const { web3Provider } = require('../providers/web3Provider');
-const { get_tx_params, build_and_send_and_wait } = require('./tools');
+/* eslint-disable camelcase */
+const { web3Provider } = require("../providers/web3Provider");
 
-async function write_NFT_to_chain(account, nft_contract_obj, nft_position, nft_multiplicator) {
+async function write_NFT_to_chain(
+  account,
+  nft_contract_obj,
+  nft_position,
+  nft_multiplicator
+) {
   // const func = nft_contract_obj.functions.write(nft_position, nft_multiplicator);
   // const tx_params = get_tx_params(web3, account, 0, 25000000, true);
   // const tx = build_and_send_and_wait(web3, account, func, tx_params);
@@ -9,9 +14,8 @@ async function write_NFT_to_chain(account, nft_contract_obj, nft_position, nft_m
   const chainId = 1;
 
   try {
-
     // start
-    let privateKey = process.env.PRIVATE_KEY;
+    const privateKey = process.env.PRIVATE_KEY;
 
     // console.log("private key ", privateKey);
     // console.log("chain ", chainId);
@@ -37,7 +41,7 @@ async function write_NFT_to_chain(account, nft_contract_obj, nft_position, nft_m
     // 4. Creating a trasaction Data
     const txData = {
       from: privateKeyOwner,
-      to: contract.options.address,
+      to: nft_contract_obj.options.address,
       data: data,
       gas,
       gasPrice,
@@ -55,19 +59,15 @@ async function write_NFT_to_chain(account, nft_contract_obj, nft_position, nft_m
       message: "success",
     };
 
-
-    successTransactionLogger.log(result);
     return result;
   } catch (error) {
-    console.log('write_NFT_to_chain trx error ', error)
+    console.log("write_NFT_to_chain trx error ", error);
     return {
       success: false,
       hash: null,
-      message: 'failed'
-    }
-
+      message: "failed",
+    };
   }
-
 }
 
 module.exports = { write_NFT_to_chain };

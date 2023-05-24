@@ -105,12 +105,12 @@ function PerpetualOptionsProtocol(n) {
 }
 
 // test scripts
-// var test_perps = new PerpetualOptionsProtocol(100);
-// var output = test_perps.mint(5, 10, 20, 0.5);
-// console.log("OUTPUT");
-// console.log(output);
-// var burn_output = test_perps.burn(output[0], 1.0, 0.5);
-// console.log("BURNING OUTPUT");
-// console.log(burn_output);
+var test_perps = new PerpetualOptionsProtocol(100);
+var output = test_perps.mint(5, 10, 20, 0.5);
+console.log("OUTPUT");
+console.log(output);
+var burn_output = test_perps.burn(output[0], 1.0, 0.5);
+console.log("BURNING OUTPUT");
+console.log(burn_output);
 
 module.exports = { PerpetualOptionsProtocol, NFT };

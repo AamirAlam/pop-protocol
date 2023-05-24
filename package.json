@@ -1,5 +1,5 @@
 {
-  "name": "hardhat-testing",
+  "name": "pop-protocol",
   "license": "MIT",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
