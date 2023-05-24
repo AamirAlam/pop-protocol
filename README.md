@@ -1,4 +1,4 @@
-# Hardhat Testing Template
+
 
 Try running some of the following tasks:
 
