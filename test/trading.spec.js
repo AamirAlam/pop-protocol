@@ -4,11 +4,11 @@ const { deployFixture } = require("./deployFixture");
 
 // test cases for the contract
 
-describe("POP protocol: ", function () {
-  it("trading contract", async function () {
+describe("Trading contract: ", async function () {
+  it("deployed trading contract", async function () {
     const { tradingContract } = await loadFixture(deployFixture);
+    // console.log("trading contract address: ", tradingContract.address);
 
-    console.log("trading contract address: ", tradingContract.address);
-    expect(true).to.be(true);
+    expect(typeof tradingContract.address).to.equal("string");
   });
 });
