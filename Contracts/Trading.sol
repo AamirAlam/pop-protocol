@@ -1,7 +1,9 @@
+//SPDX-License-Identifier:MIT
+
 // Primary Trading contract for POP
 
 pragma solidity ^0.8.7;
-import "./ECDSA.sol";
+
 interface IERC20 {
     /**
      * @dev Returns token decimals.
@@ -25,7 +27,10 @@ interface IERC20 {
      *
      * Emits a {Transfer} event.
      */
-    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transfer(
+        address recipient,
+        uint256 amount
+    ) external returns (bool);
 
     /**
      * @dev Returns the remaining number of tokens that `spender` will be
@@ -34,7 +39,10 @@ interface IERC20 {
      *
      * This value changes when {approve} or {transferFrom} are called.
      */
-    function allowance(address owner, address spender) external view returns (uint256);
+    function allowance(
+        address owner,
+        address spender
+    ) external view returns (uint256);
 
     /**
      * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
@@ -79,8 +87,13 @@ interface IERC20 {
      * @dev Emitted when the allowance of a `spender` for an `owner` is set by
      * a call to {approve}. `value` is the new allowance.
      */
-    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event Approval(
+        address indexed owner,
+        address indexed spender,
+        uint256 value
+    );
 }
+
 library Address {
     /**
      * @dev Returns true if `account` is a contract.
@@ -128,10 +141,16 @@ library Address {
      * https://solidity.readthedocs.io/en/v0.5.11/security-considerations.html#use-the-checks-effects-interactions-pattern[checks-effects-interactions pattern].
      */
     function sendValue(address payable recipient, uint256 amount) internal {
-        require(address(this).balance >= amount, "Address: insufficient balance");
+        require(
+            address(this).balance >= amount,
+            "Address: insufficient balance"
+        );
 
         (bool success, ) = recipient.call{value: amount}("");
-        require(success, "Address: unable to send value, recipient may have reverted");
+        require(
+            success,
+            "Address: unable to send value, recipient may have reverted"
+        );
     }
 
     /**
@@ -152,7 +171,10 @@ library Address {
      *
      * _Available since v3.1._
      */
-    function functionCall(address target, bytes memory data) internal returns (bytes memory) {
+    function functionCall(
+        address target,
+        bytes memory data
+    ) internal returns (bytes memory) {
         return functionCall(target, data, "Address: low-level call failed");
     }
 
@@ -186,7 +208,13 @@ library Address {
         bytes memory data,
         uint256 value
     ) internal returns (bytes memory) {
-        return functionCallWithValue(target, data, value, "Address: low-level call with value failed");
+        return
+            functionCallWithValue(
+                target,
+                data,
+                value,
+                "Address: low-level call with value failed"
+            );
     }
 
     /**
@@ -201,10 +229,15 @@ library Address {
         uint256 value,
         string memory errorMessage
     ) internal returns (bytes memory) {
-        require(address(this).balance >= value, "Address: insufficient balance for call");
+        require(
+            address(this).balance >= value,
+            "Address: insufficient balance for call"
+        );
         require(isContract(target), "Address: call to non-contract");
 
-        (bool success, bytes memory returndata) = target.call{value: value}(data);
+        (bool success, bytes memory returndata) = target.call{value: value}(
+            data
+        );
         return verifyCallResult(success, returndata, errorMessage);
     }
 
@@ -214,8 +247,16 @@ library Address {
      *
      * _Available since v3.3._
      */
-    function functionStaticCall(address target, bytes memory data) internal view returns (bytes memory) {
-        return functionStaticCall(target, data, "Address: low-level static call failed");
+    function functionStaticCall(
+        address target,
+        bytes memory data
+    ) internal view returns (bytes memory) {
+        return
+            functionStaticCall(
+                target,
+                data,
+                "Address: low-level static call failed"
+            );
     }
 
     /**
@@ -241,8 +282,16 @@ library Address {
      *
      * _Available since v3.4._
      */
-    function functionDelegateCall(address target, bytes memory data) internal returns (bytes memory) {
-        return functionDelegateCall(target, data, "Address: low-level delegate call failed");
+    function functionDelegateCall(
+        address target,
+        bytes memory data
+    ) internal returns (bytes memory) {
+        return
+            functionDelegateCall(
+                target,
+                data,
+                "Address: low-level delegate call failed"
+            );
     }
 
     /**
@@ -290,15 +339,15 @@ library Address {
         }
     }
 }
+
 library SafeERC20 {
     using Address for address;
 
-    function safeTransfer(
-        IERC20 token,
-        address to,
-        uint256 value
-    ) internal {
-        _callOptionalReturn(token, abi.encodeWithSelector(token.transfer.selector, to, value));
+    function safeTransfer(IERC20 token, address to, uint256 value) internal {
+        _callOptionalReturn(
+            token,
+            abi.encodeWithSelector(token.transfer.selector, to, value)
+        );
     }
 
     function safeTransferFrom(
@@ -307,7 +356,10 @@ library SafeERC20 {
         address to,
         uint256 value
     ) internal {
-        _callOptionalReturn(token, abi.encodeWithSelector(token.transferFrom.selector, from, to, value));
+        _callOptionalReturn(
+            token,
+            abi.encodeWithSelector(token.transferFrom.selector, from, to, value)
+        );
     }
 
     /**
@@ -329,7 +381,10 @@ library SafeERC20 {
             (value == 0) || (token.allowance(address(this), spender) == 0),
             "SafeERC20: approve from non-zero to non-zero allowance"
         );
-        _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, value));
+        _callOptionalReturn(
+            token,
+            abi.encodeWithSelector(token.approve.selector, spender, value)
+        );
     }
 
     function safeIncreaseAllowance(
@@ -338,7 +393,14 @@ library SafeERC20 {
         uint256 value
     ) internal {
         uint256 newAllowance = token.allowance(address(this), spender) + value;
-        _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, newAllowance));
+        _callOptionalReturn(
+            token,
+            abi.encodeWithSelector(
+                token.approve.selector,
+                spender,
+                newAllowance
+            )
+        );
     }
 
     function safeDecreaseAllowance(
@@ -348,9 +410,19 @@ library SafeERC20 {
     ) internal {
         unchecked {
             uint256 oldAllowance = token.allowance(address(this), spender);
-            require(oldAllowance >= value, "SafeERC20: decreased allowance below zero");
+            require(
+                oldAllowance >= value,
+                "SafeERC20: decreased allowance below zero"
+            );
             uint256 newAllowance = oldAllowance - value;
-            _callOptionalReturn(token, abi.encodeWithSelector(token.approve.selector, spender, newAllowance));
+            _callOptionalReturn(
+                token,
+                abi.encodeWithSelector(
+                    token.approve.selector,
+                    spender,
+                    newAllowance
+                )
+            );
         }
     }
 
@@ -365,224 +437,464 @@ library SafeERC20 {
         // we're implementing it ourselves. We use {Address.functionCall} to perform this call, which verifies that
         // the target address contains contract code and also asserts for success in the low-level call.
 
-        bytes memory returndata = address(token).functionCall(data, "SafeERC20: low-level call failed");
+        bytes memory returndata = address(token).functionCall(
+            data,
+            "SafeERC20: low-level call failed"
+        );
         if (returndata.length > 0) {
             // Return data is optional
-            require(abi.decode(returndata, (bool)), "SafeERC20: ERC20 operation did not succeed");
+            require(
+                abi.decode(returndata, (bool)),
+                "SafeERC20: ERC20 operation did not succeed"
+            );
         }
     }
 }
-interface IOracle {
-	function getPriceFromAggregator(bytes32 productId) external view returns (uint256);
+
+/// @dev Interace to allow interaction between in the Trading contract and the Position contract.
+interface IPosition {
+    function mint(
+        uint256[] memory,
+        uint256[] memory,
+        address,
+        bytes32,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        uint256
+    ) external returns (uint256, bytes32);
+
+    function burn(uint256, address) external;
+
+    function getPosition(bytes32) external view returns (PositionToken memory);
+
+    function getPositionId(uint256) external view returns (bytes32);
 }
-interface IPool {
-    function totalSupply() external view returns (uint256);
 
-    function creditUserProfit(address destination, uint256 amount) external;
-
-    function updateOpenInterest(uint256 amount, bool isDecrease) external;
-
-    function getUtilization() external view returns (uint256);
-
-    function getBalance(address account) external view returns (uint256);
+/// @dev Interace to allow interaction between in the Trading contract and the Staking ontract.
+interface IStaking {
 
 }
 
-contract Trading {
-	using SafeERC20 for IERC20;
-	using ECDSA for bytes32;
+/// @notice To enable admin functions
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+/// @notice For the incremental ids.
+import "@openzeppelin/contracts/utils/Counters.sol";
+
+import "./ECDSA.sol";
+
+error POP_InsufficientApprovedAmount();
+error POP_IsSequencerFunction();
+error POP_InvalidProduct();
+
+/// @notice STRUCTS ==================================
+
+/// @dev PositionToken - Represents a position owned by the trader.
+/// @dev For further details look under the CustomERC721.sol file.
+struct PositionToken {
+    uint256[] position;
+    uint256[] multiplicator;
+    address owner;
+    bytes32 associatedProduct;
+    uint256 size;
+    uint256 margin;
+    uint256 strikeUpper;
+    uint256 strikeLower;
+    uint256 timestamp;
+    bool isOpen;
+}
+
+/// @dev Product - Underlying asset or financial instrument that the options contract is based on.
+/// Created by the exchange. BPS:"basis points".
+/// @param supplyBase The variable q mentioned in the specifications which represent the count of tokens over all the intervals n.
+/// @param multiplicatorBase Created to help in the maths involved that affects the tokens at each position based on certain rules.
+/// @param limit The current upper bound of valid values in the supplyBase and multiplicatorBased.
+/// @param supply Total supply of the given product.
+/// @param margin Collateral that a trader must deposit with their broker or exchange in order to open and maintain a leveraged trading position.
+/// @param maxLeverage Allowing traders to control a larger position in an underlying asset than the amount of collateral they have put up.
+/// @param liquidationThreshold Price change at which an options position will be automatically liquidated or closed out by the platform.
+/// @param fee Platform fee.
+/// @param interest Premium that a buyer pays to a seller to acquire the right to buy (in the case of a call option) or sell (in the case
+/// of a put option) an underlying asset at a predetermined price (the strike price) on or before a specified expiration date.
+struct Product {
+    uint256[] supplyBase;
+    uint256[] multiplicatorBase;
+    uint256 limit;
+    uint256 supply;
+    uint256 margin;
+    uint256 maxLeverage; // set to 0 to deactivate product
+    uint256 liquidationThreshold; // in bps. 8000 = 80%
+    uint256 fee; // In sbps (10^6). 0.5% = 5000. 0.025% = 250
+    uint256 interest; // For 360 days, in bps. 5.35% = 535
+}
+
+contract POPTrading is Ownable {
+    using SafeERC20 for IERC20;
+    using ECDSA for bytes32;
     using Address for address payable;
+    using Counters for Counters.Counter;
 
-	// Structs
-	struct Product {
-		uint64 maxLeverage; // set to 0 to deactivate product
-		uint64 liquidationThreshold; // in bps. 8000 = 80%
-		uint64 fee; // In sbps (10^6). 0.5% = 5000. 0.025% = 250
-		uint64 interest; // For 360 days, in bps. 5.35% = 535
-	}
+    /// @notice INTERNAL VARIABLES ===============================================
+    uint256 private fundingRateAlpha;
 
-	struct Position {
-		uint64 size;
-		uint64 margin;
-		uint64 timestamp;
-		uint64 price;
-	}
+    uint256 public constant DECIMALS = 18;
 
-	struct Settlement {
-		address user;
-		bytes32 productId;
-		address currency;
-		bool isLong;
-	}
+    Counters.Counter public nextMintRequestId;
 
-	struct Order {
-		bool isClose;
-		uint64 size;
-		uint64 margin;
-	}
+    /// @notice Id to The assets
+    mapping(bytes32 => Product) public products;
+    // mapping(bytes32 => bytes) public productToParameters;
 
-	event Submission(
-		bytes32 indexed requestId,
-		address indexed user,
-		bytes32 indexed productId
-	);
-
-	event ClosePosition(
-		bytes32 indexed requestId,
-		address indexed user,
-		bytes32 indexed productId,
-		address currency,
-		bool isLong,
-		uint256 price,
-		uint256 margin,
-		uint256 size,
-		uint256 fee,
-		int256 pnl,
-		bool wasLiquidated
-	);
-
-	// Variables
-	address public owner;
-
-
-	uint256 public nextPositionId; // Incremental
-	uint256 public nextCloseOrderId; // Incremental
-	uint256 public price;
-
-	mapping(bytes32 => Product) private products;
-	mapping(bytes32 => Position) private positions; // key = currency,user,product,direction
-	mapping(bytes32 => Order) private orders; // position key => Order
-
-	mapping(address => uint256) minMargin; // currency => amount
-	mapping(address => uint256) pendingFees; // currency => amount
-
-	mapping(bytes32 => bool) public incomingFulfillments;
+    /// @notice For the PriceFeed()/Oracle
+    mapping(bytes32 => bool) public incomingFulfillments;
     mapping(bytes32 => uint256) public fulfilledData;
-	mapping(bytes32 => bytes) public productToParameters;
-	mapping(address => mapping(bytes32 => bytes32)) public userKeyToRequestId;
+    mapping(address => address payable) public sponsorToSponsorWallet;
 
-	mapping(bytes32 => Settlement) private requestIdToSettlement;
-	mapping(address => address payable) public sponsorToSponsorWallet;
+    address public sequencerAddress;
+    address public stakingAddress;
+    address public vaultAddress;
+    IERC20 public paymentToken;
+    IPosition public positionContract;
 
-	address public USDC;
+    event MintRequested(
+        address indexed user,
+        uint256 indexed requestId,
+        bytes32 indexed productId,
+        uint256 fee,
+        uint256 lambdaGenerated,
+        uint256 size,
+        uint256 strikeLower,
+        uint256 strikeUpper
+    );
 
-	IOracle public oracle_contract;
+    event BurnRequested(address indexed user, bytes32 indexed positionId);
 
-	// Constructor
-
-	constructor(address _USDC) {
-		owner = msg.sender;
-		USDC = _USDC;
-	}
-
-	// Trading Functions
-
-	function submitMint(bytes32 productId, uint256 size) external payable {
-
-	}
-
-	function submitBurn(bytes32 productId, uint256 size) external payable {
-
-	}
-
-	function settleMint(bytes32 productId, uint256 size) external payable {
-
-	}
-
-	function settleBurn(bytes32 productId, uint256 size) external payable {
-
-	}
-
-
-	// Public Getters
-
-	function getProduct(bytes32 productId) external view returns(Product memory) {
-		return products[productId];
-	}
-
-	function getPosition(address user, address currency, bytes32 productId, bool isLong) external view  {
-	}
-
-	function getOrder(address user, address currency, bytes32 productId, bool isLong) external view {
-	}
-
-	function getPositions(bytes32[] calldata keys) external view returns(Position[] memory _positions) {
-		uint256 length = keys.length;
-		_positions = new Position[](length);
-		for (uint256 i = 0; i < length; i++) {
-			_positions[i] = positions[keys[i]];
-		}
-		return _positions;
-	}
-
-	// Configuration functions
-
-	function setOwner(address _owner) external onlyOwner {
-		owner = _owner;
-	}
-
-	function setOracleContract(address _oracle) external onlyOwner {
-		oracle_contract = IOracle(_oracle);
-	}
-
-	function setUSDC(address _USDC) external onlyOwner {
-		USDC = _USDC;
-	}
-
-	function addProduct(bytes32 productId, Product memory _product, bytes memory parameters) external onlyOwner {
-		Product memory product = products[productId];
-		require(product.liquidationThreshold == 0, "!product-exists");
-		require(_product.liquidationThreshold > 0, "!liqThreshold");
-		products[productId] = Product({
-			maxLeverage: _product.maxLeverage,
-			fee: _product.fee,
-			interest: _product.interest,
-			liquidationThreshold: _product.liquidationThreshold
-		});
-		productToParameters[productId] = parameters;
-	}
-
-	function updateProduct(bytes32 productId, Product memory _product, bytes memory parameters) external onlyOwner {
-		Product storage product = products[productId];
-		require(product.liquidationThreshold > 0, "!product-does-not-exist");
-		product.maxLeverage = _product.maxLeverage;
-		product.fee = _product.fee;
-		product.interest = _product.interest;
-		product.liquidationThreshold = _product.liquidationThreshold;
-		productToParameters[productId] = parameters;
-
-	}
-
-	// Integer mutators
-
-	function toInt256(int224 value) internal pure returns (int256) {
-        require(value >= type(int256).min && value <= type(int256).max, "value doesn't fit in 224 bits");
-        return int256(value);
+    modifier onlySequencer() {
+        if (_msgSender() != sequencerAddress) revert POP_IsSequencerFunction();
+        _;
     }
 
-    function toUint256(int256 value) internal pure returns (uint256) {
-        require(value >= 0, "value must be positive");
-        return uint256(value);
+    modifier validProduct(bytes32 _productId) {
+        if (products[_productId].maxLeverage == 0) revert POP_InvalidProduct();
+        _;
     }
 
-	function int224toUint256(int224 value) internal pure returns (uint256) {
-		int256 x = toInt256(value);
-		return toUint256(x);
-	}
+    constructor(
+        address _paymentToken,
+        address _positionContract,
+        address _sequencer,
+        address _staking,
+        address _vault
+    ) {
+        paymentToken = IERC20(_paymentToken);
+        positionContract = IPosition(_positionContract);
+        sequencerAddress = _sequencer;
+        stakingAddress = _staking;
+        vaultAddress = _vault;
+        nextMintRequestId.increment();
+    }
 
-	// Modifiers
+    /// @notice FUNCTIONS =================================================
 
-	modifier onlyOwner() {
-		require(msg.sender == owner, "!owner");
-		_;
-	}
+    function updateSupplyBase() internal {}
 
-	fallback() external payable {}
-	receive() external payable {}
+    function updateSupplyBaseBatch() internal {}
 
-    // Events
+    /// @notice Responsible for initiating the minting process. Step 1. Step 2 being the Sequencer actually minting the
+    /// NFT and the position is then officially/technically open.
+    function requestPosition(
+        uint256 _strikeLower,
+        uint256 _strikeUpper,
+        bytes32 _productId,
+        uint256 _size,
+        uint256 _fee
+    ) external validProduct(_productId) {
+        // Platform collects.
+        uint256 protocolCut = _size * _fee;
+        // Vault collects.
+        uint256 vaultCut = _size * (1 - _fee);
+        // uint256 totalApprovalRequired = stakingCut + vaultCut;
 
-    event Mint(uint test);
-    event Burn(uint test);
+        if (
+            paymentToken.allowance(_msgSender(), address(this)) < protocolCut ||
+            paymentToken.allowance(_msgSender(), vaultAddress) < vaultCut
+        ) revert POP_InsufficientApprovedAmount();
 
+        paymentToken.transferFrom(_msgSender(), address(this), protocolCut);
+        paymentToken.transferFrom(_msgSender(), vaultAddress, vaultCut);
+
+        /// @dev The code written below is still under scrutiny,
+        uint256 lambda = lambda_calculation(
+            _productId,
+            _strikeLower,
+            _strikeUpper,
+            _size,
+            _fee
+        );
+
+        emit MintRequested(
+            _msgSender(),
+            nextMintRequestId.current(),
+            _productId,
+            _fee,
+            lambda,
+            _size,
+            _strikeLower,
+            _strikeUpper
+        );
+
+        nextMintRequestId.increment();
+    }
+
+    function mintPositionSequencer(
+        uint256[] memory _positions,
+        address _receiver,
+        bytes32 _productId,
+        uint256 _fee,
+        uint256 _size,
+        uint256 _margin,
+        uint256 _strikeUpper,
+        uint256 _strikeLower
+    ) external onlySequencer returns (uint256) {
+        uint256[] memory _multiplicator = products[_productId]
+            .multiplicatorBase;
+
+        (uint256 tokenId, ) = positionContract.mint(
+            _positions,
+            _multiplicator,
+            _receiver,
+            _productId,
+            _fee,
+            _size,
+            _margin,
+            _strikeUpper,
+            _strikeLower
+        );
+        return tokenId;
+    }
+
+    function burnPosition(
+        uint256 _positionTokenId,
+        uint256 _fraction
+    ) external {
+        address caller = _msgSender();
+        _burnPosition(_positionTokenId, _fraction, caller);
+    }
+
+    function _burnPosition(
+        uint256 _positionTokenId,
+        uint256 _fraction,
+        address _caller
+    ) internal {
+        bytes32 positionId = positionContract.getPositionId(_positionTokenId);
+        PositionToken memory currentPosition = positionContract.getPosition(
+            positionId
+        );
+        bytes32 productId = currentPosition.associatedProduct;
+
+        Product memory currentProduct = products[productId];
+        uint256[] memory supplyBase = currentProduct.supplyBase;
+        uint256[] memory multiplicatorBase = currentProduct.multiplicatorBase;
+        uint256[] memory additionalValues;
+        uint256 limit = currentProduct.limit;
+        uint256 start = currentPosition.strikeLower;
+        uint256 end = currentPosition.strikeUpper;
+
+        for (uint256 i = start; i <= end; i++) {
+            uint256 toSubtract = (_fraction *
+                currentPosition.position[i] *
+                multiplicatorBase[i]) / currentPosition.multiplicator[i];
+            supplyBase[i] -= toSubtract;
+            additionalValues[i] = toSubtract;
+        }
+
+        uint256 modifiedM = getM(supplyBase, additionalValues, limit, true);
+        uint256 M = getM(supplyBase, additionalValues, limit, false);
+        uint256 fee = products[productId].fee;
+
+        uint256 userCut = (modifiedM - M) * (1 - fee);
+        uint256 protocolCut = (modifiedM - M) * fee;
+
+        if (paymentToken.allowance(_caller, address(this)) < protocolCut)
+            revert POP_InsufficientApprovedAmount();
+
+        paymentToken.transferFrom(_caller, address(this), protocolCut);
+        paymentToken.transfer(_caller, userCut);
+
+        positionContract.burn(_positionTokenId, _caller);
+    }
+
+    /// @notice GETTER FUNCTIONS ==================================================
+    function getProduct(bytes32 id) public view returns (Product memory) {
+        return products[id];
+    }
+
+    function getM(
+        uint256[] memory _supplyBase,
+        uint256[] memory _additionalValues,
+        uint256 _limit,
+        bool _useAdditional
+    ) public pure returns (uint256) {
+        uint256 sum = 0;
+
+        if (_useAdditional)
+            for (uint256 i = 0; i < _limit; i++)
+                sum += (_supplyBase[i] + _additionalValues[i]) ** 2;
+        else for (uint256 i = 0; i < _limit; i++) sum += (_supplyBase[i]) ** 2;
+
+        return sqrt(sum);
+    }
+
+    function getSumFromSupply(
+        uint256[] memory _supplyBase,
+        uint256 _start,
+        uint256 _end
+    ) public pure returns (uint256) {
+        require(_start <= _end);
+
+        uint256 sum = 0;
+        for (uint256 i = _start; i <= _end; i++) {
+            sum += _supplyBase[i];
+        }
+        return (sum);
+    }
+
+    function getSlippageEstimate(
+        uint256 _ask,
+        uint256 _bid,
+        uint256 _quantity
+    ) external pure returns (uint256) {
+        uint256 spread = _ask - _bid;
+        uint256 slippageEstimate = spread * _quantity;
+        return slippageEstimate;
+    }
+
+    /// @dev Should be handled on the front since this will essentially return a fractional value.
+    /// @dev Or we can multiply the numerator q(Supply of a token Ti) value with 10**x and divide the return
+    /// @dev value with 10**x on the front to get the actual value,
+    function getHistogramValue(
+        bytes32 _productId
+    ) external view returns (uint256) {
+        Product memory currentProduct = products[_productId];
+
+        uint256[] memory supplyBase = currentProduct.supplyBase;
+        uint256[] memory temp;
+        uint256 limit = currentProduct.limit;
+
+        uint currentM = getM(supplyBase, temp, limit, false);
+
+        uint256 numerator = 10 ** DECIMALS * currentProduct.supply;
+        uint256 histogramValue = numerator / currentM;
+        return histogramValue;
+    }
+
+    function lambda_calculation(
+        bytes32 _productId,
+        uint256 _strikeLower,
+        uint256 _strikeUpper,
+        uint256 _size,
+        uint256 _fee
+    ) public view returns (uint256) {
+        Product memory currentProduct = products[_productId];
+
+        uint256[] memory supplyBase = currentProduct.supplyBase;
+        uint256[] memory temp;
+        uint256 limit = currentProduct.limit;
+
+        uint256 denominator = _strikeUpper - _strikeLower + 1;
+
+        uint256 M = getM(supplyBase, temp, limit, false);
+
+        uint256 subSum = getSumFromSupply(
+            supplyBase,
+            _strikeLower,
+            _strikeUpper
+        );
+
+        uint256 numerator = sqrt(
+            (subSum ** 2) +
+                (denominator * ((M + _size * (1 - _fee)) ** 2 - M ** 2))
+        ) - subSum;
+
+        uint256 lambda_output = (numerator * 10 ** DECIMALS) / denominator;
+        return lambda_output;
+    }
+
+    /// @notice Babylonian Method of finding the square root.
+    function sqrt(uint256 x) internal pure returns (uint256 y) {
+        uint256 z = (x + 1) / 2;
+        y = x;
+        while (z < y) {
+            y = z;
+            z = (x / z + z) / 2;
+        }
+    }
+
+    /// @notice CONFIGURATION FUNCTIONS =============================================
+
+    function setPositionContract(address _nft) external onlyOwner {
+        positionContract = IPosition(_nft);
+    }
+
+    function setSequencer(address _sequencer) external onlyOwner {
+        sequencerAddress = _sequencer;
+    }
+
+    /// @notice ADMIN FUNCTIONS ====================================================
+
+    function addProduct(
+        bytes32 productId,
+        Product memory _product
+    ) external onlyOwner {
+        Product storage product = products[productId];
+        require(product.liquidationThreshold == 0, "!product-exists");
+        require(_product.liquidationThreshold > 0, "!liqThreshold");
+
+        uint256[] memory multiplicatorBase;
+        uint256[] memory supplyBase;
+        uint256 _limit = _product.limit;
+
+        for (uint i = 0; i < _limit; i++) {
+            supplyBase[i] = 0;
+            multiplicatorBase[i] = 1;
+        }
+
+        products[productId] = Product({
+            supplyBase: supplyBase,
+            multiplicatorBase: multiplicatorBase,
+            limit: _product.limit,
+            supply: _product.supply,
+            margin: _product.margin,
+            maxLeverage: _product.maxLeverage,
+            fee: _product.fee,
+            interest: _product.interest,
+            liquidationThreshold: _product.liquidationThreshold
+        });
+        // productToParameters[productId] = parameters;
+    }
+
+    /// @notice Can be used to discontinue an asset by setting the maxLeverage to 0.
+    function updateProduct(
+        bytes32 productId,
+        Product memory _product
+    )
+        external
+        // bytes memory parameters
+        onlyOwner
+    {
+        Product storage product = products[productId];
+        require(product.liquidationThreshold > 0, "!product-does-not-exist");
+        product.supply = _product.supply;
+        product.margin = _product.margin;
+        product.maxLeverage = _product.maxLeverage;
+        product.fee = _product.fee;
+        product.interest = _product.interest;
+        product.liquidationThreshold = _product.liquidationThreshold;
+    }
+
+    fallback() external payable {}
+
+    receive() external payable {}
 }
