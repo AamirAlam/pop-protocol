@@ -689,20 +689,23 @@ contract POPTrading is Ownable {
         address _caller
     ) internal {
         bytes32 positionId = positionContract.getPositionId(_positionTokenId);
+
         PositionToken memory currentPosition = positionContract.getPosition(
             positionId
         );
-        bytes32 productId = currentPosition.associatedProduct;
+        Product memory currentProduct = products[
+            currentPosition.associatedProduct
+        ];
 
-        Product memory currentProduct = products[productId];
         uint256[] memory supplyBase = currentProduct.supplyBase;
         uint256[] memory multiplicatorBase = currentProduct.multiplicatorBase;
         uint256[] memory additionalValues;
-        uint256 limit = currentProduct.limit;
-        uint256 start = currentPosition.strikeLower;
-        uint256 end = currentPosition.strikeUpper;
 
-        for (uint256 i = start; i <= end; i++) {
+        for (
+            uint256 i = currentPosition.strikeLower;
+            i <= currentPosition.strikeUpper;
+            i++
+        ) {
             uint256 toSubtract = (_fraction *
                 currentPosition.position[i] *
                 multiplicatorBase[i]) / currentPosition.multiplicator[i];
@@ -710,9 +713,19 @@ contract POPTrading is Ownable {
             additionalValues[i] = toSubtract;
         }
 
-        uint256 modifiedM = getM(supplyBase, additionalValues, limit, true);
-        uint256 M = getM(supplyBase, additionalValues, limit, false);
-        uint256 fee = products[productId].fee;
+        uint256 modifiedM = getM(
+            supplyBase,
+            additionalValues,
+            currentProduct.limit,
+            true
+        );
+        uint256 M = getM(
+            supplyBase,
+            additionalValues,
+            currentProduct.limit,
+            false
+        );
+        uint256 fee = products[currentPosition.associatedProduct].fee;
 
         uint256 userCut = (modifiedM - M) * (1 - fee);
         uint256 protocolCut = (modifiedM - M) * fee;
