@@ -1,0 +1,131 @@
+function burnPosition(
+        uint256 _positionTokenId,
+        uint256 _fraction
+    ) external {
+        address caller = _msgSender();
+        _burnPosition(_positionTokenId, _fraction, caller);
+    }
+
+    function _burnPosition(
+        uint256 _positionTokenId,
+        uint256 _fraction,
+        address _caller
+    ) internal {
+        bytes32 positionId = positionContract.getPositionId(_positionTokenId);
+
+        PositionToken memory currentPosition = positionContract.getPosition(
+            positionId
+        );
+        Product memory currentProduct = products[
+            currentPosition.associatedProduct
+        ];
+
+        uint256[] memory supplyBase = currentProduct.supplyBase;
+        uint256[] memory multiplicatorBase = currentProduct.multiplicatorBase;
+        uint256[] memory additionalValues;
+
+        for (
+            uint256 i = currentPosition.strikeLower;
+            i <= currentPosition.strikeUpper;
+            i++
+        ) {
+            uint256 toSubtract = (_fraction *
+                currentPosition.position[i] *
+                multiplicatorBase[i]) / currentPosition.multiplicator[i];
+            supplyBase[i] -= toSubtract;
+            additionalValues[i] = toSubtract;
+        }
+
+        uint256 modifiedM = getM(
+            supplyBase,
+            additionalValues,
+            currentProduct.limit,
+            true
+        );
+        uint256 M = getM(
+            supplyBase,
+            additionalValues,
+            currentProduct.limit,
+            false
+        );
+        uint256 fee = products[currentPosition.associatedProduct].fee;
+
+        uint256 userCut = (modifiedM - M) * (1 - fee);
+        uint256 protocolCut = (modifiedM - M) * fee;
+
+        if (paymentToken.allowance(_caller, address(this)) < protocolCut)
+            revert POP_InsufficientApprovedAmount();
+
+        paymentToken.transferFrom(_caller, address(this), protocolCut);
+        paymentToken.transfer(_caller, userCut);
+
+        positionContract.burn(_positionTokenId, _caller);
+    }
+
+
+
+
+
+
+
+
+    function lambda_calculation(
+        bytes32 _productId,
+        uint256 _strikeLower,
+        uint256 _strikeUpper,
+        uint256 _size,
+        uint256 _fee
+    ) public view returns (uint256) {
+        Product memory currentProduct = products[_productId];
+
+        uint256[] memory supplyBase = currentProduct.supplyBase;
+        uint256[] memory temp;
+        uint256 limit = currentProduct.limit;
+
+        uint256 denominator = _strikeUpper - _strikeLower + 1;
+
+        uint256 M = getM(supplyBase, temp, limit, false);
+
+        uint256 subSum = getSumFromSupply(
+            supplyBase,
+            _strikeLower,
+            _strikeUpper
+        );
+
+        uint256 numerator = sqrt(
+            (subSum ** 2) +
+                (denominator * ((M + _size * (1 - _fee)) ** 2 - M ** 2))
+        ) - subSum;
+
+        uint256 lambda_output = (numerator * 10 ** DECIMALS) / denominator;
+        return lambda_output;
+    }
+ uint256 lambda = lambda_calculation(
+            _productId,
+            _strikeLower,
+            _strikeUpper,
+            _size,
+            _fee
+        );
+
+
+
+
+
+
+
+
+
+    function getSumFromSupply(
+        uint256[] memory _supplyBase,
+        uint256 _start,
+        uint256 _end
+    ) public pure returns (uint256) {
+        require(_start <= _end);
+
+        uint256 sum = 0;
+        for (uint256 i = _start; i <= _end; i++) {
+            sum += _supplyBase[i];
+        }
+        return (sum);
+    }
