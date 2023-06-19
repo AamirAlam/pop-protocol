@@ -43,6 +43,15 @@ module.exports = {
           },
         },
       },
+      {
+        version: "0.8.9",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
     ],
     gas: 700000000,
     //  gasMultiplier:5,
