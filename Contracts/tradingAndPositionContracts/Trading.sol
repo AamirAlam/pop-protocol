@@ -9,21 +9,29 @@ import "./interfaces/IERC20.sol";
 /// @notice All the relevant error codes.
 error ERR_POP_Trading_InsufficientApprovedAmount();
 error ERR_POP_Trading_IsSequencerFunction();
+error ERR_POP_Trading_SequencerSignatureInvalid();
 error ERR_POP_Trading_InvalidProductId();
 error ERR_POP_Trading_TokenTransferFailed();
 error ERR_POP_Trading_UserMintRequestIsInvalid();
 error ERR_POP_Trading_UserBurnRequestIsInvalid();
-error ERR_POP_Trading_BurnFeeNotUpdatedByTheSequencer();
+error ERR_POP_Trading_NotThePositionOwner();
 
 /// @notice Structure that represents a Minting Request initiated by the user and holds relevant info.
 /// @param receiver The address that initiated the request.
 /// @param productId The product an address is wanting to purchase.
 /// @param positionId The token id of the minted position at the assoociated position contract of a product.
+/// @param size Total tokens they want to buy.
+/// @param strikeLower The lower limit of the price range they want to buy at.
+/// @param strikeUpper The upper limit of the price range they want to buy at.
 /// @param isFullFilled Bool to check if the mint was confirmed by the sequencer and the position is open.
 struct MintRequest {
     address receiver;
     bytes32 productId;
     uint256 positionId;
+    uint256 size;
+    uint256 strikeLower;
+    uint256 strikeUpper;
+    uint256 totalFee;
     bool isFullFilled;
 }
 
@@ -33,17 +41,13 @@ struct MintRequest {
 /// @param positionId The respective position that the person is trying to burn
 /// @param totalFee The calculated fee. Requires some mathematical calculation therefore might need sequencer's help.
 /// @param toReturnFee The mentioned fee payed back to the owner of position when the position is burned.
-/// @param feeUpdatedBySequencer Bool value to check if sequencer is done with the above calculations.
-/// @param feePaid Bool to check if the fee was paid by the user before being processed by the sequencer finally.
 /// @param isFullFilled To check if the burn was successful.
 struct BurnRequest {
     address burner;
     bytes32 productId;
     uint256 positionId;
-    uint256 totalFee;
     uint256 toReturnFee;
-    bool feeUpdatedBySequencer;
-    bool feePaid;
+    uint256 totalFee;
     bool isFullFilled;
 }
 
@@ -54,21 +58,14 @@ struct BurnRequest {
 /// @param limit The current upper bound of valid values in the supplyBase and multiplicatorBase ie the limit of say Qn.
 /// @param supply Total supply of the given product. Sum of Q1, Q2 .... Qn
 /// @param margin Collateral that a trader must deposit with their broker or exchange in order to open and maintain a leveraged trading position.
-/// @param maxLeverage Allowing traders to control a larger position in an underlying asset than the amount of collateral they have put up.
-/// @param liquidationThreshold Price change at which an options position will be automatically liquidated or closed out by the platform.
 /// @param fee Platform fee.
-/// @param interest Premium that a buyer pays to a seller to acquire the right to buy (in the case of a call option) or sell (in the case
-/// of a put option) an underlying asset at a predetermined price (the strike price) on or before a specified expiration date.
 struct Product {
     uint256[] supplyBase;
     uint256[] multiplicatorBase;
     uint256 limit;
     uint256 supply;
     uint256 margin;
-    uint256 maxLeverage; // set to 0 to deactivate product
-    uint256 liquidationThreshold; // in bps. 8000 = 80%
     uint256 fee; // In sbps (10^6). 0.5% = 5000. 0.025% = 250
-    uint256 interest; // For 360 days, in bps. 5.35% = 535
     address positionContract;
 }
 
@@ -105,41 +102,22 @@ contract POP_Trading is Ownable {
     mapping(uint256 => MintRequest) public mintRequestIdToStructure;
     mapping(uint256 => BurnRequest) public burnRequestIdToStructure;
 
-    /// @notice EVENTS ======================================================
+    /// @notice Will make sure one signature can't be used again and again and make false requests.
+    /// @notice Each time a burn fee is calculated a unique signature is also created.
+    mapping(bytes32 => bool) public signatureUsed;
 
+    /// @notice EVENTS ======================================================
     /// @notice Emitted when user wants to buy a position. Is read by the sequencer.
     /// @param user The address initiating the mint,
     /// @param requestId Unique id for each new mint request.
-    /// @param productId Unique id of the asset the address is looking to buy.
-    /// @param size Total tokens they want to buy.
-    /// @param strikeLower The lower limit of the price range they want to buy at.
-    /// @param strikeUpper The upper limit of the price range they want to buy at.
     /// @notice When the request is fulfilled they get a position id which belongs to the respective position contract
     /// associated with the given product.
-    event MintRequested(
-        address indexed user,
-        uint256 indexed requestId,
-        bytes32 productId,
-        uint256 size,
-        uint256 strikeLower,
-        uint256 strikeUpper
-    );
+    event MintRequested(address indexed user, uint256 indexed requestId);
 
     /// @notice Emitted when user wants to sell a position. Is read by the sequencer.
-
     /// @param user The address wishing to sell their position.
     /// @param requestId The associated id for each new burn request.
-    /// @param productId The asset user is looking to sell.
-    /// @param positionId The unique position id representing their current position they are willing to burn.
-    event BurnRequested(
-        address indexed user,
-        uint256 indexed requestId,
-        bytes32 productId,
-        uint256 positionId
-    );
-
-    ///
-    event BurnFeePaid(address indexed user, uint256 indexed requestId);
+    event BurnRequested(address indexed user, uint256 indexed requestId);
 
     /// MODIFIERS ===========================================================
 
@@ -195,11 +173,10 @@ contract POP_Trading is Ownable {
     function updateMultiplicatorBase() internal {}
 
     /// ===================================================================
-    /// @dev The mint function is a 2-Step procedure and burn is a 4-Step procedure.
+    /// @dev The mint function is a 2-Step procedure and burn is a 2-Step procedure too.
 
-    /// @notice Step 1 being the user sending a request to mint
-    /// the position which requires them approving a fixed amount of tokens based on the fee for the asset and
-    /// the size they are looking to buy.
+    /// @notice Step 1 being the user sending a request to mint the position which requires them approving a fixed
+    /// amount of tokens based on the fee for the asset and the size they are looking to buy.
     /// @notice Step 2 being the Sequencer minting the NFT on behalf of the user and is now officially/technically open.
 
     /// @notice Responsible for initiating the minting process.
@@ -237,6 +214,10 @@ contract POP_Trading is Ownable {
             receiver: _msgSender(),
             productId: _productId,
             positionId: 0,
+            size: _size,
+            strikeLower: _strikeLower,
+            strikeUpper: _strikeUpper,
+            totalFee: protocolCut + vaultCut,
             isFullFilled: false
         });
 
@@ -245,14 +226,8 @@ contract POP_Trading is Ownable {
         ] = associatedRequest;
 
         /// This event will be used to contruct the params when the sequencer will be minting the position.
-        emit MintRequested(
-            _msgSender(),
-            nextMintRequestId.current(),
-            _productId,
-            _size,
-            _strikeLower,
-            _strikeUpper
-        );
+        emit MintRequested(_msgSender(), nextMintRequestId.current());
+
         nextMintRequestId.increment();
     }
 
@@ -262,15 +237,9 @@ contract POP_Trading is Ownable {
     /// legitimate user and require them to pay a fee.
     /// @param _requestId The associated mint request Id.
     /// @param _positions The supply array provided by the sequencer after performing the functions mentioned in the spec sheet.
-    /// @param _size Read from the event.
-    /// @param _strikeUpper Read from the event.
-    /// @param _strikeLower Read from the event.
     function mintPositionSequencer(
         uint256 _requestId,
-        uint256[] memory _positions,
-        uint256 _size,
-        uint256 _strikeUpper,
-        uint256 _strikeLower
+        uint256[] memory _positions
     ) external onlySequencer returns (uint256) {
         MintRequest storage associatedRequest = mintRequestIdToStructure[
             _requestId
@@ -284,54 +253,73 @@ contract POP_Trading is Ownable {
             productToPositionContract[associatedRequest.productId]
         );
 
-        address _receiver = associatedRequest.receiver;
         uint256[] memory _multiplicator = products[associatedRequest.productId]
             .multiplicatorBase;
 
         uint256 positionId = positionContract.mint(
             _positions,
             _multiplicator,
-            _receiver,
-            _size,
-            _strikeUpper,
-            _strikeLower
+            associatedRequest.receiver,
+            associatedRequest.size,
+            associatedRequest.strikeUpper,
+            associatedRequest.strikeLower
         );
-        associatedRequest.isFullFilled = true;
+
         /// The position id is updated now and is linked with the request.
         associatedRequest.positionId = positionId;
+        associatedRequest.isFullFilled = true;
 
         return positionId;
     }
 
-    /// @notice Step 1. The user initiates the request.
-    /// @notice Step 2. The sequencer listens for incoming burn request and updates the fee after doing the math
-    /// mentioned in the spec sheet.
-    /// @notice Step 3. The user pays whatever they owe to the protocol and returns a fraction of the fee as mentioned
-    /// in the spec sheet.
-    /// @notice Step 4. The sequencer reads the burn fee payed event and finally burns the position on behalf of the user.
+    /// @notice Step 1. The user initiates the request. This will including a signature being sent in the txn itself
+    /// to make sure the txn was framed by the sequencer and was signed by the person requesting it.
+    /// @notice Step 2. The sequencer reads the burn requested and finally burns the position on behalf of the user.
 
     /// @notice Used by the caller to request the burning of a given position.
     /// @param _productId The product they are looking to sell.
     /// @param _positionId The position that pinpoints the exact position.
+
     /// @dev The combination of both the params acts like a Primary Key seen in RDBMS.
     function requestBurn(
         bytes32 _productId,
-        uint256 _positionId
+        uint256 _positionId,
+        bytes32 _sequencerSignature,
+        uint8 v,
+        bytes32 r,
+        bytes32 s,
+        uint256 _owedFee,
+        uint256 _toReturnFee
     ) external validPosition(_productId, _positionId) {
         IPositions positionContract = IPositions(
             productToPositionContract[_productId]
         );
+
         /// Check if the caller even owns the position.
-        if (positionContract.getOwner(_positionId) != _msgSender()) revert();
+        if (positionContract.getOwner(_positionId) != _msgSender())
+            revert ERR_POP_Trading_NotThePositionOwner();
+
+        /// CHECK IF THE SIGNATURE ORIGINATED FROM THE SEQUENCER OR NOT.
+        if (
+            ecrecover(_sequencerSignature, v, r, s) != sequencerAddress ||
+            signatureUsed[_sequencerSignature]
+        ) revert ERR_POP_Trading_SequencerSignatureInvalid();
+
+        if (paymentToken.allowance(_msgSender(), address(this)) < _owedFee)
+            revert ERR_POP_Trading_InsufficientApprovedAmount();
+        // Protocol collects [M(q + q′) −M(q)] ∗ fee
+        if (!paymentToken.transferFrom(_msgSender(), address(this), _owedFee))
+            revert ERR_POP_Trading_TokenTransferFailed();
+        // Pay [M(q + q′) −M(q)] ∗ (1−fee) to user
+        if (!paymentToken.transfer(_msgSender(), _toReturnFee))
+            revert ERR_POP_Trading_TokenTransferFailed();
 
         BurnRequest memory associatedRequest = BurnRequest({
             burner: _msgSender(),
             productId: _productId,
             positionId: _positionId,
-            totalFee: type(uint256).max,
-            toReturnFee: 0,
-            feeUpdatedBySequencer: false,
-            feePaid: false,
+            toReturnFee: _toReturnFee,
+            totalFee: _owedFee,
             isFullFilled: false
         });
 
@@ -339,62 +327,9 @@ contract POP_Trading is Ownable {
             nextBurnRequestId.current()
         ] = associatedRequest;
 
-        emit BurnRequested(
-            _msgSender(),
-            nextBurnRequestId.current(),
-            _productId,
-            _positionId
-        );
+        emit BurnRequested(_msgSender(), nextBurnRequestId.current());
+
         nextBurnRequestId.increment();
-    }
-
-    /// @notice Called by the sequencer to update the amount owed by the user for the burn.
-    /// @param _requestId The unqiue identifier for the Burn Request.
-    /// @param _totalFee Total fee owed.
-    /// @param  _toReturnFee The amount to be returned to the user.
-    function updateBurnFee(
-        uint256 _requestId,
-        uint256 _totalFee,
-        uint256 _toReturnFee
-    ) external onlySequencer {
-        BurnRequest storage associatedRequest = burnRequestIdToStructure[
-            _requestId
-        ];
-
-        associatedRequest.totalFee = _totalFee;
-        associatedRequest.toReturnFee = _toReturnFee;
-        associatedRequest.feeUpdatedBySequencer = true;
-    }
-
-    /// @notice After the fee is updated by the sequencer, the below function is called to settle all the associated fee.
-    /// @param _requestId The Burn Request in question.
-    function approveAndTransferBurnFee(uint256 _requestId) external {
-        BurnRequest storage associatedRequest = burnRequestIdToStructure[
-            _requestId
-        ];
-
-        if (!associatedRequest.feeUpdatedBySequencer)
-            revert ERR_POP_Trading_BurnFeeNotUpdatedByTheSequencer();
-        if (
-            paymentToken.allowance(_msgSender(), address(this)) <
-            associatedRequest.totalFee
-        ) revert ERR_POP_Trading_InsufficientApprovedAmount();
-
-        // Protocol collects [M(q + q′) −M(q)] ∗ fee
-        bool success = paymentToken.transferFrom(
-            _msgSender(),
-            address(this),
-            associatedRequest.totalFee
-        );
-        if (!success) revert ERR_POP_Trading_TokenTransferFailed();
-        // Pay [M(q + q′) −M(q)] ∗ (1−fee) to user
-        success = paymentToken.transfer(
-            _msgSender(),
-            associatedRequest.toReturnFee
-        );
-        if (!success) revert ERR_POP_Trading_TokenTransferFailed();
-
-        associatedRequest.feePaid = true;
     }
 
     /// @notice The final function called by the sequencer to officially burn the position.
@@ -411,23 +346,21 @@ contract POP_Trading is Ownable {
         if (
             associatedRequest.isFullFilled ||
             associatedRequest.burner == address(0) ||
-            !associatedRequest.feePaid
+            associatedRequest.totalFee == 0
         ) revert ERR_POP_Trading_UserBurnRequestIsInvalid();
+
+        // Updates for the supply base.
+        Product storage associatedProduct = products[
+            associatedRequest.productId
+        ];
+        uint256 limit = associatedProduct.limit;
+        for (uint256 i = 0; i < limit; i++)
+            // Set qi = qi −q′i
+            associatedProduct.supplyBase[i] = _updatedPositions[i];
 
         IPositions positionContract = IPositions(
             productToPositionContract[associatedRequest.productId]
         );
-        Product storage associatedProduct = products[
-            associatedRequest.productId
-        ];
-
-        uint256 limit = associatedProduct.limit;
-
-        // Updates to the supply base.
-        // Set qi = qi −q′i
-        for (uint256 i = 0; i < limit; i++)
-            associatedProduct.supplyBase[i] = _updatedPositions[i];
-
         positionContract.burn(associatedRequest.positionId);
 
         associatedRequest.isFullFilled = true;
@@ -440,16 +373,6 @@ contract POP_Trading is Ownable {
         bytes32 _productId
     ) public view returns (Product memory) {
         return products[_productId];
-    }
-
-    /// @notice Called by the user/interface to get the current owed amount which is later payed by the user in the
-    /// approveAndTransfer function.
-    function getBurnFee(uint256 _requestId) external view returns (uint256) {
-        BurnRequest memory associatedRequest = burnRequestIdToStructure[
-            _requestId
-        ];
-
-        return associatedRequest.totalFee;
     }
 
     /// @notice Not required as of now. May need for the platform. dk.
@@ -552,10 +475,7 @@ contract POP_Trading is Ownable {
             limit: _productParams.limit,
             supply: _productParams.supply,
             margin: _productParams.margin,
-            maxLeverage: _productParams.maxLeverage,
             fee: _productParams.fee,
-            interest: _productParams.interest,
-            liquidationThreshold: _productParams.liquidationThreshold,
             positionContract: address(associatedPositionContract)
         });
     }
@@ -570,10 +490,7 @@ contract POP_Trading is Ownable {
 
         product.supply = _newProductParams.supply;
         product.margin = _newProductParams.margin;
-        product.maxLeverage = _newProductParams.maxLeverage;
         product.fee = _newProductParams.fee;
-        product.interest = _newProductParams.interest;
-        product.liquidationThreshold = _newProductParams.liquidationThreshold;
         product.positionContract = _newProductParams.positionContract;
     }
 

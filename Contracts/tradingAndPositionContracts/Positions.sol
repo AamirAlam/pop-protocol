@@ -32,8 +32,7 @@ contract POP_Positions is Ownable, ERC721, IPositions {
     using Counters for Counters.Counter;
     Counters.Counter private nextTokenId;
 
-    address public popTradingContract = address(0);
-
+    address public immutable POP_TRADING_CONTRACT;
     bytes32 public immutable PARENT_PRODUCT;
 
     mapping(uint256 => PositionToken) private idToPosition;
@@ -41,11 +40,11 @@ contract POP_Positions is Ownable, ERC721, IPositions {
     event PositionStatus(
         address indexed owner,
         uint256 indexed positionId,
-        bool isOpen
+        bool indexed isOpen
     );
 
     modifier onlyPOP_Trading() {
-        if (_msgSender() != popTradingContract)
+        if (_msgSender() != POP_TRADING_CONTRACT)
             revert ERR_POP_Positions_CallerNotTheTradingContract();
         _;
     }
@@ -64,7 +63,9 @@ contract POP_Positions is Ownable, ERC721, IPositions {
         string memory _productSymbol
     ) ERC721(_productName, _productSymbol) {
         nextTokenId.increment();
+
         PARENT_PRODUCT = _parentProduct;
+        POP_TRADING_CONTRACT = _msgSender();
     }
 
     function getNextId() external view returns (uint256) {
@@ -75,6 +76,10 @@ contract POP_Positions is Ownable, ERC721, IPositions {
         uint256 _positionId
     ) external view returns (PositionToken memory) {
         return idToPosition[_positionId];
+    }
+
+    function getOwner(uint256 _positionId) external view returns (address) {
+        return _ownerOf(_positionId);
     }
 
     function mint(
@@ -108,10 +113,6 @@ contract POP_Positions is Ownable, ERC721, IPositions {
         return positionId;
     }
 
-    function getOwner(uint256 _positionId) external view returns (address) {
-        return _ownerOf(_positionId);
-    }
-
     function burn(
         uint256 _positionId
     ) external override onlyPOP_Trading validId(_positionId) {
@@ -127,10 +128,6 @@ contract POP_Positions is Ownable, ERC721, IPositions {
         uint256 _positionId,
         PositionToken memory _updatedPositionParams
     ) external onlyPOP_Trading {}
-
-    function setTradingContract(address _tradingContract) external onlyOwner {
-        popTradingContract = _tradingContract;
-    }
 
     // * receive function
     receive() external payable {}
