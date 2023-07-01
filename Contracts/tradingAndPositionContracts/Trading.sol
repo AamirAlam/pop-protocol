@@ -119,6 +119,13 @@ contract POP_Trading is Ownable {
     /// @param requestId The associated id for each new burn request.
     event BurnRequested(address indexed user, uint256 indexed requestId);
 
+    event ProductAdded(
+        bytes32 indexed id,
+        string indexed name,
+        string indexed symbol,
+        Product product
+    );
+
     /// MODIFIERS ===========================================================
 
     /// @dev Functions only to be called by the sequencerAddress.
@@ -450,9 +457,9 @@ contract POP_Trading is Ownable {
 
         require(product.limit == 0, "product-exists");
 
-        uint256[] memory multiplicatorBase;
-        uint256[] memory supplyBase;
         uint256 _limit = _productParams.limit;
+        uint256[] memory multiplicatorBase = new uint256[](_limit);
+        uint256[] memory supplyBase = new uint256[](_limit);
 
         for (uint i = 0; i < _limit; i++) {
             supplyBase[i] = 0;
@@ -478,6 +485,8 @@ contract POP_Trading is Ownable {
             fee: _productParams.fee,
             positionContract: address(associatedPositionContract)
         });
+
+        emit ProductAdded(_productId, _name, _symbol, products[_productId]);
     }
 
     /// @notice Can be used to discontinue an asset by setting the limit to 0.
