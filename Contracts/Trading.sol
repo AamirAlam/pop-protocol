@@ -69,7 +69,7 @@ struct Product {
     address positionContract;
 }
 
-contract POP_Trading is Ownable {
+contract Trading is Ownable {
     /// VARIABLES ==========================================================
 
     // using ECDSA for bytes32;

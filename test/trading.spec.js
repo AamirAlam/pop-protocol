@@ -56,27 +56,20 @@ describe("Trading contract: ", function () {
       const productId = ethers.utils.formatBytes32String("PRODUCT_1");
       const name = "Product 1";
       const symbol = "P1";
-
-      // uint256[] supplyBase;
-      // uint256[] multiplicatorBase;
-      // uint256 limit;
-      // uint256 supply;
-      // uint256 margin;
-      // uint256 fee; // In sbps (10^6). 0.5% = 5000. 0.025% = 250
-      // address positionContract;
       const productParams = {
-        supplyBase: [1000, 2000, 3000],
-        multiplicatorBase: [1000, 2000, 3000],
+        supplyBase: [0, 0, 0],
+        multiplicatorBase: [1, 1, 1],
         limit: 3,
         supply: 1000,
         margin: 100,
         fee: 5000,
+        positionContract: "0x0000000000000000000000000000000000000000",
       };
 
       await expect(
         popTrading
           .connect(owner)
-          .addProduct(productId, name, symbol, ...productParams)
+          .addProduct(productId, name, symbol, productParams)
       )
         .to.emit(popTrading, "ProductAdded")
         .withArgs(productId, name, symbol, productParams);
