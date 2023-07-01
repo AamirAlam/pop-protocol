@@ -69,7 +69,7 @@ struct Product {
     address positionContract;
 }
 
-contract Trading is Ownable {
+contract POP_Trading is Ownable {
     /// VARIABLES ==========================================================
 
     // using ECDSA for bytes32;
@@ -118,6 +118,13 @@ contract Trading is Ownable {
     /// @param user The address wishing to sell their position.
     /// @param requestId The associated id for each new burn request.
     event BurnRequested(address indexed user, uint256 indexed requestId);
+
+    event ProductAdded(
+        bytes32 indexed id,
+        string indexed name,
+        string indexed symbol,
+        Product product
+    );
 
     /// MODIFIERS ===========================================================
 
@@ -450,9 +457,9 @@ contract Trading is Ownable {
 
         require(product.limit == 0, "product-exists");
 
-        uint256[] memory multiplicatorBase;
-        uint256[] memory supplyBase;
         uint256 _limit = _productParams.limit;
+        uint256[] memory multiplicatorBase = new uint256[](_limit);
+        uint256[] memory supplyBase = new uint256[](_limit);
 
         for (uint i = 0; i < _limit; i++) {
             supplyBase[i] = 0;
@@ -478,6 +485,8 @@ contract Trading is Ownable {
             fee: _productParams.fee,
             positionContract: address(associatedPositionContract)
         });
+
+        emit ProductAdded(_productId, _name, _symbol, products[_productId]);
     }
 
     /// @notice Can be used to discontinue an asset by setting the limit to 0.
