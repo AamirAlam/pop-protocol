@@ -5,9 +5,9 @@ const { PerpetualOptionsProtocol } = require("../math/popMath");
 const { web3Provider } = require("../providers/web3Provider");
 const { fetchPriceFromCoinGecko } = require("../utils");
 const settlement = require("./settlement");
-const tradingABI = ""; // require('/abi_path')
-const nftABI = ""; // require('/nft_abi_path')
-const chainLinkABI = ""; // require('/_abi_path')
+const tradingABI = require("../../Contracts/storage/Token_abi.json");
+const nftABI = require("../../Contracts/storage/NFT_abi.json");
+const chainLinkABI = require("../../Contracts/storage/Oracle_abi.json");
 
 function Sequencer(trading_addr, nft_addr) {
   const name = "Sequencer";
@@ -49,6 +49,7 @@ function Sequencer(trading_addr, nft_addr) {
     }
   }
 
+  // returns burn events
   async function check_for_burns(timestamp) {
     try {
       // todo: fix fetch mint events for contract
@@ -62,15 +63,20 @@ function Sequencer(trading_addr, nft_addr) {
             `${timestamp} MonitorService: BURN FOUND in block ${item.blockNumber}`
           );
         }
+
+        return events;
       } else {
         console.log(
           `${timestamp} MonitorService: no burns found in block ${web3.eth.blockNumber}`
         );
+
+        return [];
       }
     } catch (e) {
       console.log(
         `${timestamp} MonitorService: error retrieving events on chain: ${e}`
       );
+      return [];
     }
   }
 
