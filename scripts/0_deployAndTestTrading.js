@@ -1,9 +1,3 @@
-/// YOU NEED TO ADD 'hardhat-deploy` package.
-/// After done, create a folder called deploy and move this file in there.
-/// Add require("hardhat-deploy"); at the top of hardhat.config
-/// Run `yarn hardhat deploy` 
-
-
 module.exports = async ({ deployments, getNamedAccounts, ethers }) => {
   const { deploy } = deployments;
   const { deployer, userO, userT } = await getNamedAccounts();
@@ -21,14 +15,18 @@ module.exports = async ({ deployments, getNamedAccounts, ethers }) => {
   await mock.mint(userO);
   await mock.mint(userT);
 
+  // const Trading = await deploy("POP_Trading", {
+  //   from: deployer,
+  //   args: [
+  //     Mock.address,
+  //     "0x0000000000000000000000000000000000000000",
+  //     "0x0000000000000000000000000000000000000000",
+  //     "0x0000000000000000000000000000000000000000",
+  //   ],
+  // });
   const Trading = await deploy("POP_Trading", {
     from: deployer,
-    args: [
-      Mock.address,
-      "0x0000000000000000000000000000000000000000",
-      "0x0000000000000000000000000000000000000000",
-      "0x0000000000000000000000000000000000000000",
-    ],
+    args: [Mock.address, deployer, deployer, deployer],
   });
   console.log("Deployed Trading at    :", Trading.address);
 
@@ -51,11 +49,11 @@ module.exports = async ({ deployments, getNamedAccounts, ethers }) => {
   const receipt = await txn.wait(1);
 
   // Check the product creation params are same in the event emitted.
-  console.log(
-    "Product created! Emitted values :",
-    receipt.events[1].args[3],
-    "\n"
-  );
+  // console.log(
+  //   "Product created! Emitted values :",
+  //   receipt.events[1].args[3],
+  //   "\n"
+  // );
 
   // Product Contract Exists : Should != 0 and pass.
   const productAdded = await trading.getProduct(productId);
@@ -84,24 +82,24 @@ module.exports = async ({ deployments, getNamedAccounts, ethers }) => {
   // );
 
   // Update the Product by Owner : Should Pass.
-  const initialFee = productAdded.fee;
-  console.log("\nCurrent fee :", initialFee);
+  const fee = productAdded.fee;
+  console.log("Current fee :", fee);
 
   // Only works for supply/margin/fee/positionContract as of v1. Can be changed if the client asks for it.
-  var updatedParams = {
-    supplyBase: [],
-    multiplicatorBase: [],
-    limit: 10,
-    supply: 1000,
-    margin: 100,
-    fee: 2000,
-    positionContract: "0x0000000000000000000000000000000000000000",
-  };
+  // var updatedParams = {
+  //   supplyBase: [],
+  //   multiplicatorBase: [],
+  //   limit: 10,
+  //   supply: 1000,
+  //   margin: 100,
+  //   fee: 2000,
+  //   positionContract: "0x0000000000000000000000000000000000000000",
+  // };
 
-  await trading.updateProduct(productId, updatedParams);
-  const productUpdated = await trading.getProduct(productId);
-  const updatedFee = productUpdated.fee;
-  console.log("Final fee :", updatedFee);
+  // await trading.updateProduct(productId, updatedParams);
+  // const productUpdated = await trading.getProduct(productId);
+  // const updatedFee = productUpdated.fee;
+  // console.log("Final fee :", updatedFee);
 
   // Reverts if non-user tries updating the product : Fails with : VM Exception while processing transaction:
   //reverted with reason string 'Ownable: caller is not the owner'".
@@ -120,10 +118,37 @@ module.exports = async ({ deployments, getNamedAccounts, ethers }) => {
 
   // Should fail for updating non-existent products : Does fail with VM Exception while processing
   // transaction: reverted with reason string 'Product-does-not-exist'"
-  const nonExistingProductId = ethers.utils.formatBytes32String(
-    "NON_EXISTING_PRODUCT"
-  );
-  await trading.updateProduct(nonExistingProductId, updatedParams);
+  // const nonExistingProductId = ethers.utils.formatBytes32String(
+  //   "NON_EXISTING_PRODUCT"
+  // );
+  // await trading.updateProduct(nonExistingProductId, updatedParams);
+
+  const size = ethers.BigNumber.from("10");
+  const maxfee = ethers.BigNumber.from("1000000");
+
+  const strikeLower = 100;
+  const strikeUpper = 200;
+
+  const protocolCut = size * fee;
+  const vaultCut = size * (maxfee - fee);
+  const toApprove = (protocolCut + vaultCut).toString();
+  // console.log(toApprove.toString());
+  // console.log(protocolCut, vaultCut);
+
+  await mock.approve(Trading.address, toApprove);
+
+  await trading.requestPosition(productId, size, strikeLower, strikeUpper);
+
+  const mintRequest = await trading.mintRequestIdToStructure(1);
+  console.log(mintRequest);
+  // receiver: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+  // productId: '0x50524f445543545f310000000000000000000000000000000000000000000000',
+  // positionId: BigNumber { value: "0" },
+  // size: BigNumber { value: "10" },
+  // strikeLower: BigNumber { value: "100" },
+  // strikeUpper: BigNumber { value: "200" },
+  // totalFee: BigNumber { value: "10000000" },
+  // isFullFilled: false
 };
 
 module.exports.tags = ["All"];
