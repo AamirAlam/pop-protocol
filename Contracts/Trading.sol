@@ -69,7 +69,7 @@ struct Product {
     address positionContract;
 }
 
-contract Trading is Ownable {
+contract POP_Trading is Ownable {
     /// VARIABLES ==========================================================
 
     // using ECDSA for bytes32;
@@ -201,7 +201,7 @@ contract Trading is Ownable {
 
         /// @dev Need to use something with a decimal value since we cant directly use 1 as decimal values are discarded.
         uint256 protocolCut = _size * fee;
-        uint256 vaultCut = _size * (1 - fee);
+        uint256 vaultCut = _size * (10 ** 6 - fee);
 
         if (
             paymentToken.allowance(_msgSender(), address(this)) <
