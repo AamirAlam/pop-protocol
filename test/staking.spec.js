@@ -97,7 +97,6 @@ describe("StakingContract", function () {
 
       await ethers.provider.send("evm_increaseTime", [7 * 24 * 60 * 60]); // simulate 7 days passing
       await ethers.provider.send("evm_mine"); // mine the next block
-
       await stakingContract.connect(addr1).unstake();
       expect(await stakingContract.stakedAmount(addr1.address)).to.equal(0);
     });
@@ -112,10 +111,14 @@ describe("StakingContract", function () {
       await stakingContract
         .connect(addr1)
         .stake(ethers.utils.parseEther("100"));
+      await rewardToken.approve(stakingContract.address, ethers.utils.parseEther("10000"));
+      await rewardToken.transfer(stakingContract.address, ethers.utils.parseEther("10000"));
+      await stakingContract.connect(owner).sendFeeToVault(ethers.utils.parseEther("9000"));
 
       await ethers.provider.send("evm_increaseTime", [7 * 24 * 60 * 60]); // simulate 7 days passing
       await ethers.provider.send("evm_mine"); // mine the next block
-
+      
+      await stakingContract.connect(addr1).updateFinalRewards(addr1.address);
       expect(await stakingContract.rewardsEarned(addr1.address)).to.equal(
         ethers.utils.parseEther("10")
       ); // 10% APR, so 10 tokens over 7 days
@@ -137,6 +140,7 @@ describe("StakingContract", function () {
         stakingContract.address,
         ethers.utils.parseEther("100")
       ); // deposit reward tokens in staking contract
+      await stakingContract.connect(addr1).updateFinalRewards(addr1.address);
       await stakingContract.connect(addr1).claimRewards();
       expect(await rewardToken.balanceOf(addr1.address)).to.equal(
         ethers.utils.parseEther("10")

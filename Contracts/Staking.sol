@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "hardhat/console.sol";
 
 /// @title pop-protocol-v1 vault and staking contract
 /// @author vanshwassan
@@ -8,6 +9,7 @@ pragma solidity ^0.8.0;
 /// @notice Supports variable APR.
 /// @notice NOT AUDITED YET!
 /// @notice NOT TESTED YET!
+/// @notice WIP
 
 /// @notice ERC20 openzeppelin implementation
 interface IERC20 {
@@ -55,32 +57,45 @@ contract StakingContract {
     }
 
     /// @notice updateRewards() modifier to update the rewards
-    modifier updateRewards(address staker) {
-        uint256 stakerStakedAmount = stakedAmount[staker];
-        uint256 stakerLastStakedEpoch = lastStakedEpoch[staker];
+    // modifier updateRewards(address staker) {
+    //     uint256 stakerStakedAmount = stakedAmount[staker];
+    //     uint256 stakerLastStakedEpoch = lastStakedEpoch[staker];
 
-        if (stakerStakedAmount > 0) {
-            uint256 reward = calculateReward(stakerStakedAmount, stakerLastStakedEpoch);
-            rewardsEarned[staker] += reward;
-        }
+    //     if (stakerStakedAmount > 0) {
+    //         uint256 reward = calculateReward(stakerStakedAmount, stakerLastStakedEpoch);
+    //         rewardsEarned[staker] += reward;
+    //     }
 
-        _;
-    }
+    //     _;
+    // }
 
     /// @notice calculateReward() to calulcate the reward for each staker
     /// @dev should be private, just gonna check how this works
-    function calculateReward(uint256 amount, uint256 _lastStakedEpoch) public view returns (uint256) {
+    function calculateReward(uint256 amount, uint256 _lastStakedEpoch) internal view returns (uint256) {
         uint256 epochsPassed = (block.timestamp - _lastStakedEpoch) / stakingDuration;
+        console.log("passed epoch: %s", epochsPassed);
         uint256 totalRewards = (amount * currentAPR * epochsPassed) / 100;
+        console.log("calculateReward totalRewards: %s", totalRewards);
         // this means 7 days have passed. user starts earning rewards 7 days after staking
         if (epochsPassed >= 1) {
             return totalRewards;
         }
-        return 0;
+        else return 0;
+    }
+
+    /// @dev not the best approach, still testing
+    function updateFinalRewards(address _staker) external {
+        uint256 stakerStakedAmount = stakedAmount[_staker];
+        uint256 stakerLastStakedEpoch = lastStakedEpoch[_staker];
+
+        if (stakerStakedAmount > 0) {
+            uint256 reward = calculateReward(stakerStakedAmount, stakerLastStakedEpoch);
+            rewardsEarned[_staker] = reward;
+        }
     }
 
     /// @notice stake() to stake POP Tokens
-    function stake(uint256 amount) external updateRewards(msg.sender) {
+    function stake(uint256 amount) external {
         require(amount > 0, "Invalid staking amount");
         require(IERC20(tokenStaked).allowance(msg.sender, address(this)) > 0, "Allowance too low!");
 
@@ -97,7 +112,7 @@ contract StakingContract {
     }
 
     /// @notice unstake() will allow users to unstake POP tokens after 7 day unstake epoch
-    function unstake() external updateRewards(msg.sender) {
+    function unstake() external {
         require(unstakeInitiatedEpoch[msg.sender] > 0, "Unstake not initiated");
         require(block.timestamp >= unstakeInitiatedEpoch[msg.sender] + stakingDuration, "Lock-up period not elapsed");
 
@@ -108,14 +123,19 @@ contract StakingContract {
         stakedAmount[msg.sender] = 0;
         lastStakedEpoch[msg.sender] = 0;
         unstakeInitiatedEpoch[msg.sender] = 0;
+        if (stakedAmount[msg.sender] > 0) {
+            uint256 reward = calculateReward(stakedAmount[msg.sender], lastStakedEpoch[msg.sender]);
+            rewardsEarned[msg.sender] = reward;
+        }
     }
 
     /// @notice claimRewards() to claim any available rewards
-    function claimRewards() external updateRewards(msg.sender) {
-        require(rewardsEarned[msg.sender] > 0, "No rewards to claim");
-        require (IERC20(rewardToken).balanceOf(address(this)) < rewardsEarned[msg.sender], "Not enough USDC in vault");
-
-        IERC20(rewardToken).transfer(msg.sender, rewardsEarned[msg.sender]);
+    function claimRewards() external {
+        require(rewardsEarned[msg.sender] > 0, "No rewards!");
+        require(stakedAmount[msg.sender] > 0, "No tokens staked!");
+        require(IERC20(rewardToken).balanceOf(address(this)) > rewardsEarned[msg.sender], "Not enough USDC in vault");
+        require(IERC20(rewardToken).transfer(msg.sender, rewardsEarned[msg.sender]), "Transfer failed");
+        
         rewardsEarned[msg.sender] = 0;
     }
 
@@ -131,7 +151,6 @@ contract StakingContract {
             currentAPR += 1;
             currentStakingTarget = (currentStakingTarget * 90) / 100;
         }
-
         lastEpochEndTime = block.timestamp;
     }
 
