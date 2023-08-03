@@ -1,9 +1,7 @@
 const { ethers } = require("hardhat");
 
 async function main() {
-  const stakingFactory = await ethers.getContractFactory(
-    "StakingContract"
-  );
+  const stakingFactory = await ethers.getContractFactory("StakingContract");
 
   const tokenStaked = "";
   const rewardToken = "";

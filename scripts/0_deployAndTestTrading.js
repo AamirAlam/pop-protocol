@@ -1,3 +1,8 @@
+/// YOU NEED TO ADD 'hardhat-deploy` package.
+/// After done, create a folder called deploy and move this file in there.
+/// Add require("hardhat-deploy"); at the top of hardhat.config
+/// Run `yarn hardhat deploy`
+
 module.exports = async ({ deployments, getNamedAccounts, ethers }) => {
   const { deploy } = deployments;
   const { deployer, userO, userT } = await getNamedAccounts();
@@ -15,16 +20,7 @@ module.exports = async ({ deployments, getNamedAccounts, ethers }) => {
   await mock.mint(userO);
   await mock.mint(userT);
 
-  // const Trading = await deploy("POP_Trading", {
-  //   from: deployer,
-  //   args: [
-  //     Mock.address,
-  //     "0x0000000000000000000000000000000000000000",
-  //     "0x0000000000000000000000000000000000000000",
-  //     "0x0000000000000000000000000000000000000000",
-  //   ],
-  // });
-  const Trading = await deploy("POP_Trading", {
+  const Trading = await deploy("Trading", {
     from: deployer,
     args: [Mock.address, deployer, deployer, deployer],
   });

@@ -111,13 +111,21 @@ describe("StakingContract", function () {
       await stakingContract
         .connect(addr1)
         .stake(ethers.utils.parseEther("100"));
-      await rewardToken.approve(stakingContract.address, ethers.utils.parseEther("10000"));
-      await rewardToken.transfer(stakingContract.address, ethers.utils.parseEther("10000"));
-      await stakingContract.connect(owner).sendFeeToVault(ethers.utils.parseEther("9000"));
+      await rewardToken.approve(
+        stakingContract.address,
+        ethers.utils.parseEther("10000")
+      );
+      await rewardToken.transfer(
+        stakingContract.address,
+        ethers.utils.parseEther("10000")
+      );
+      await stakingContract
+        .connect(owner)
+        .sendFeeToVault(ethers.utils.parseEther("9000"));
 
       await ethers.provider.send("evm_increaseTime", [7 * 24 * 60 * 60]); // simulate 7 days passing
       await ethers.provider.send("evm_mine"); // mine the next block
-      
+
       await stakingContract.connect(addr1).updateFinalRewards(addr1.address);
       expect(await stakingContract.rewardsEarned(addr1.address)).to.equal(
         ethers.utils.parseEther("10")
@@ -146,5 +154,67 @@ describe("StakingContract", function () {
         ethers.utils.parseEther("10")
       ); // 10% APR, so 10 tokens over 7 days
     });
+
+    it("Should not allow users to claim rewards if they have not earned any", async function () {
+      await expect(
+        stakingContract.connect(addr1).claimRewards()
+      ).to.be.revertedWith("No rewards!");
+    });
+  });
+
+  // describe("Epoch updates", function () {
+  //   it("Should correctly update the epoch", async function () {
+  //     const initialAPR = await stakingContract.currentAPR();
+  //     const initialStakingTarget = await stakingContract.currentStakingTarget();
+
+  //     // Mint and stake some tokens for addr1
+  //     await tokenStaked
+  //       .connect(addr1)
+  //       .approve(stakingContract.address, ethers.utils.parseEther("1000"));
+  //     await stakingContract
+  //       .connect(addr1)
+  //       .stake(ethers.utils.parseEther("1000"));
+
+  //     await ethers.provider.send("evm_increaseTime", [604800]); // Increase time by one week
+  //     await ethers.provider.send("evm_mine"); // Mine the next block
+
+  //     await stakingContract.updateEpoch();
+
+  //     expect(await stakingContract.currentAPR()).to.equal(initialAPR - 1);
+  //     expect(await stakingContract.currentStakingTarget()).to.equal(
+  //       (initialStakingTarget * 110) / 100
+  //     );
+  //   });
+  // });
+
+  describe("Contract balances", function () {
+    it("Should return the correct total staked amount", async function () {
+      // Mint and stake some tokens for addr1
+      await tokenStaked.approve(
+        stakingContract.address,
+        ethers.utils.parseEther("100")
+      );
+      await stakingContract.stake(ethers.utils.parseEther("100"));
+
+      expect(await stakingContract.totalStakedAmount()).to.equal(
+        ethers.utils.parseEther("100")
+      );
+    });
+
+    // it("Should return the correct reward token balance", async function () {
+    //   // Mint and stake some tokens for addr1, and let the staking contract earn some reward tokens
+    //   await tokenStaked.approve(
+    //     stakingContract.address,
+    //     ethers.utils.parseEther("100")
+    //   );
+    //   await stakingContract.stake(ethers.utils.parseEther("100"));
+
+    //   await ethers.provider.send("evm_increaseTime", [604800]); // Increase time by one week
+    //   await ethers.provider.send("evm_mine"); // Mine the next block
+
+    //   await stakingContract.updateFinalRewards(addr1.address);
+
+    //   expect(await stakingContract.totalUSDCVaultBalance()).to.be.above(0);
+    // });
   });
 });

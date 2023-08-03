@@ -5,6 +5,7 @@
     "test": "npx hardhat test",
     "compile": "npx hardhat compile",
     "deploy": "hardhat run scripts/deployAccumulation.js --network matictest",
+    "deploy-test": "hardhat run scripts/0_deployAndTestTrading.js",
     "deploy-accumulation": "hardhat run --network matictest scripts/deployAccumulation.js",
     "deploy-faucets": "hardhat run --network matictest scripts/deployFaucet.js",
     "verify-contract-faucet": "hardhat verify --contract contracts/ERC20Faucet.sol:FaucetToken --network matictest 0xE118429D095de1a93951c67D04B523fE5cbAB62c",
