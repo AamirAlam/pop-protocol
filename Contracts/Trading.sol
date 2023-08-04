@@ -2,9 +2,22 @@
 
 pragma solidity ^0.8.7;
 
+/// @title POP-Protocol-v1 Trading Contract.
+/// @author Anuj Tanwar aka br0wnD3v
+
+/// @notice Root contract to enable the users to :
+/// Initiate the 'Minting' of Perpetual positions.
+/// Initiate the 'Burning' of Perpetual positions if exists.
+/// @notice Operations shifted to the Sequencer :
+/// Minting of the position requested by the user.
+/// Burning of the position requested by the user.
+
+/// @notice In Testing Phase.
+/// @notice Not Audited.
+
 import "./Positions.sol";
-import "./interfaces/IStaking.sol";
 import "./interfaces/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @notice All the relevant error codes.
 error ERR_POP_Trading_InsufficientApprovedAmount();
@@ -69,7 +82,7 @@ struct Product {
     address positionContract;
 }
 
-contract POP_Trading is Ownable {
+contract POP_Trading is Ownable, ReentrancyGuard {
     /// VARIABLES ==========================================================
 
     // using ECDSA for bytes32;
@@ -85,8 +98,8 @@ contract POP_Trading is Ownable {
 
     /// @notice All the associated contracts the Trading contract interacts with in some form.
     address public sequencerAddress;
-    address public stakingAddress;
-    address public vaultAddress;
+    address public vaultStakingAddress;
+    // address public vaultAddress;
     /// @notice USDC preferrably.
     IERC20 public paymentToken;
 
@@ -119,6 +132,11 @@ contract POP_Trading is Ownable {
     /// @param requestId The associated id for each new burn request.
     event BurnRequested(address indexed user, uint256 indexed requestId);
 
+    /// @notice Used to track all the created products. Can be filtered at the front by the limit variable.
+    /// @param id A unique id alloted to them.
+    /// @param name The name given to the product.
+    /// @param symbol The symbol given to the product.
+    /// @param product The struct that defines the product.
     event ProductAdded(
         bytes32 indexed id,
         string indexed name,
@@ -126,6 +144,15 @@ contract POP_Trading is Ownable {
         Product product
     );
 
+    /// @notice Used to track the current activity for a given user.
+    /// @param owner The trader in question.
+    /// @param productPositionPair Combination of the ProductId and the PositionId encoded.
+    /// @param isOpen The latest status for a PPP.
+    event PositionStatus(
+        address indexed owner,
+        bytes indexed productPositionPair,
+        bool indexed isOpen
+    );
     /// MODIFIERS ===========================================================
 
     /// @dev Functions only to be called by the sequencerAddress.
@@ -160,13 +187,11 @@ contract POP_Trading is Ownable {
     constructor(
         address _paymentToken,
         address _sequencer,
-        address _staking,
-        address _vault
+        address _vaultStaking
     ) {
         paymentToken = IERC20(_paymentToken);
         sequencerAddress = _sequencer;
-        stakingAddress = _staking;
-        vaultAddress = _vault;
+        vaultStakingAddress = _vaultStaking;
 
         nextMintRequestId.increment();
         nextBurnRequestId.increment();
@@ -180,6 +205,7 @@ contract POP_Trading is Ownable {
     function updateMultiplicatorBase() internal {}
 
     /// ===================================================================
+
     /// @dev The mint function is a 2-Step procedure and burn is a 2-Step procedure too.
 
     /// @notice Step 1 being the user sending a request to mint the position which requires them approving a fixed
@@ -196,7 +222,7 @@ contract POP_Trading is Ownable {
         uint256 _size,
         uint256 _strikeLower,
         uint256 _strikeUpper
-    ) external validProduct(_productId) {
+    ) external validProduct(_productId) nonReentrant returns (uint256) {
         uint256 fee = products[_productId].fee;
 
         /// @dev Need to use something with a decimal value since we cant directly use 1 as decimal values are discarded.
@@ -213,7 +239,7 @@ contract POP_Trading is Ownable {
             protocolCut + vaultCut
         );
         if (!success) revert ERR_POP_Trading_TokenTransferFailed();
-        success = paymentToken.transfer(vaultAddress, vaultCut);
+        success = paymentToken.transfer(vaultStakingAddress, vaultCut);
         if (!success) revert ERR_POP_Trading_TokenTransferFailed();
 
         /// The position id is later updated when the position is actually minted by the sequencer.
@@ -236,6 +262,8 @@ contract POP_Trading is Ownable {
         emit MintRequested(_msgSender(), nextMintRequestId.current());
 
         nextMintRequestId.increment();
+
+        return nextMintRequestId.current() - 1;
     }
 
     /// @notice The function called by the sequencer to mint the position.
@@ -247,7 +275,7 @@ contract POP_Trading is Ownable {
     function mintPositionSequencer(
         uint256 _requestId,
         uint256[] memory _positions
-    ) external onlySequencer returns (uint256) {
+    ) external onlySequencer nonReentrant returns (uint256) {
         MintRequest storage associatedRequest = mintRequestIdToStructure[
             _requestId
         ];
@@ -276,6 +304,13 @@ contract POP_Trading is Ownable {
         associatedRequest.positionId = positionId;
         associatedRequest.isFullFilled = true;
 
+        bytes memory productPosition = abi.encode(
+            associatedRequest.productId,
+            bytes32(positionId)
+        );
+
+        emit PositionStatus(associatedRequest.receiver, productPosition, true);
+
         return positionId;
     }
 
@@ -297,14 +332,18 @@ contract POP_Trading is Ownable {
         bytes32 s,
         uint256 _owedFee,
         uint256 _toReturnFee
-    ) external validPosition(_productId, _positionId) {
-        IPositions positionContract = IPositions(
-            productToPositionContract[_productId]
-        );
-
+    )
+        external
+        validPosition(_productId, _positionId)
+        nonReentrant
+        returns (uint256)
+    {
         /// Check if the caller even owns the position.
-        if (positionContract.getOwner(_positionId) != _msgSender())
-            revert ERR_POP_Trading_NotThePositionOwner();
+        if (
+            IPositions(productToPositionContract[_productId]).getOwner(
+                _positionId
+            ) != _msgSender()
+        ) revert ERR_POP_Trading_NotThePositionOwner();
 
         /// CHECK IF THE SIGNATURE ORIGINATED FROM THE SEQUENCER OR NOT.
         if (
@@ -314,12 +353,16 @@ contract POP_Trading is Ownable {
 
         if (paymentToken.allowance(_msgSender(), address(this)) < _owedFee)
             revert ERR_POP_Trading_InsufficientApprovedAmount();
+
         // Protocol collects [M(q + q′) −M(q)] ∗ fee
         if (!paymentToken.transferFrom(_msgSender(), address(this), _owedFee))
             revert ERR_POP_Trading_TokenTransferFailed();
+
         // Pay [M(q + q′) −M(q)] ∗ (1−fee) to user
         if (!paymentToken.transfer(_msgSender(), _toReturnFee))
             revert ERR_POP_Trading_TokenTransferFailed();
+
+        signatureUsed[_sequencerSignature] = true;
 
         BurnRequest memory associatedRequest = BurnRequest({
             burner: _msgSender(),
@@ -337,6 +380,8 @@ contract POP_Trading is Ownable {
         emit BurnRequested(_msgSender(), nextBurnRequestId.current());
 
         nextBurnRequestId.increment();
+
+        return nextBurnRequestId.current() - 1;
     }
 
     /// @notice The final function called by the sequencer to officially burn the position.
@@ -346,7 +391,7 @@ contract POP_Trading is Ownable {
     function burnPositionSequencer(
         uint256 _requestId,
         uint256[] memory _updatedPositions
-    ) external onlySequencer {
+    ) external onlySequencer nonReentrant {
         BurnRequest storage associatedRequest = burnRequestIdToStructure[
             _requestId
         ];
@@ -370,6 +415,13 @@ contract POP_Trading is Ownable {
         );
         positionContract.burn(associatedRequest.positionId);
 
+        bytes memory productPosition = abi.encode(
+            associatedRequest.productId,
+            bytes32(associatedRequest.positionId)
+        );
+
+        emit PositionStatus(associatedRequest.burner, productPosition, false);
+
         associatedRequest.isFullFilled = true;
     }
 
@@ -378,8 +430,21 @@ contract POP_Trading is Ownable {
     /// @notice To get a product details based on its id.
     function getProduct(
         bytes32 _productId
-    ) public view returns (Product memory) {
+    ) external view returns (Product memory) {
         return products[_productId];
+    }
+
+    /// @notice To get a list of products together.
+    function getProducts(
+        bytes32[] memory _productIds,
+        uint256 _limit
+    ) external view returns (Product[] memory) {
+        Product[] memory toReturn = new Product[](_limit);
+        for (uint256 index = 0; index < _limit; index++) {
+            toReturn[index] = products[_productIds[index]];
+        }
+
+        return toReturn;
     }
 
     /// @notice Not required as of now. May need for the platform. dk.
@@ -445,6 +510,14 @@ contract POP_Trading is Ownable {
         sequencerAddress = _sequencer;
     }
 
+    function setVaultStaking(address _vaultStaking) external onlyOwner {
+        vaultStakingAddress = _vaultStaking;
+    }
+
+    function setPaymentToken(address _newToken) external onlyOwner {
+        paymentToken = IERC20(_newToken);
+    }
+
     /// @notice ADMIN FUNCTIONS ====================================================
 
     function addProduct(
@@ -469,7 +542,8 @@ contract POP_Trading is Ownable {
         POP_Positions associatedPositionContract = new POP_Positions(
             _productId,
             _name,
-            _symbol
+            _symbol,
+            _limit
         );
 
         productToPositionContract[_productId] = address(
@@ -507,12 +581,13 @@ contract POP_Trading is Ownable {
 
     function transferTokensToVault() external onlyOwner {
         uint256 balance = paymentToken.balanceOf(address(this));
-        paymentToken.transfer(vaultAddress, balance);
+        paymentToken.transfer(vaultStakingAddress, balance);
     }
 
-    // function transferETHToVault() external onlyOwner {
-    //     uint256 balance = address(this).balance;
-    // }
+    function transferETHToVault() external onlyOwner {
+        uint256 balance = address(this).balance;
+        payable(vaultStakingAddress).transfer(balance);
+    }
 
     /// ================================================
 
