@@ -18,14 +18,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Install Node.js and npm
+      - name: Install Node.js and yarn
         uses: actions/setup-node@v2
         with:
           node-version: '18.16.0'
-          cache: 'npm'
+          cache: 'yarn'
 
       - name: Install dependencies
-        run: npm install
+        run: yarn install
 
       - name: Compile Solidity contracts
-        run: npm hardhat compile
+        run: yarn hardhat compile
