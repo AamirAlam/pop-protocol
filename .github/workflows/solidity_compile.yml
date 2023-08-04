@@ -29,7 +29,4 @@ jobs:
         run: yarn
 
       - name: Compile Solidity contracts
-        uses: ethers-io/solidity@v1
-        with:
-          solc-version: '0.7.0'  # Adjust to your desired Solidity version
-          contracts: './Contracts/**/*.sol'  # Adjust the path to your Solidity contracts
+        run: yarn hardhat compile
