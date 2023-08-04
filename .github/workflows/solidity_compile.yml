@@ -3,7 +3,9 @@ name: Solidity Compile
 on:
   push:
     branches:
-      - main 
+      - main
+      - cleanup
+      
   pull_request:
     branches:
       - main
