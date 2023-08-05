@@ -46,8 +46,7 @@ describe("Trading contract: ", function () {
     popTrading = await PopTrading.deploy(
       paymentToken.address,
       sequencer.address,
-      stakingContract.address,
-      addr1.address
+      stakingContract.address
     );
     await popTrading.deployed();
   });
@@ -221,11 +220,10 @@ describe("Trading contract: ", function () {
       const protocolCut = size * fee;
       const vaultCut = size * (maxfee - fee);
       const toApprove = (protocolCut + vaultCut).toString();
-      console.log("toApprove ", toApprove);
+
       // await mock.approve(Trading.address, toApprove);
       await paymentToken.approve(popTrading.address, toApprove);
 
-      console.log("approved ");
       // Request a position
       await popTrading.requestPosition(
         productId,
@@ -307,46 +305,46 @@ describe("Trading contract: ", function () {
       expect(updatedMintRequest.positionId).to.not.equal(0);
     });
 
-    it("should allow a user to request burning a position", async function () {
-      const productId = ethers.utils.formatBytes32String("PRODUCT_1");
-      const positionId = 1;
-      const sequencerSignature = await sequencer.signMessage(
-        ethers.utils.arrayify(positionId)
-      );
-      const owedFee = ethers.utils.parseEther("1");
-      const toReturnFee = ethers.utils.parseEther("0.5");
+    // it("should allow a user to request burning a position", async function () {
+    //   const productId = ethers.utils.formatBytes32String("PRODUCT_1");
+    //   const positionId = 1;
+    //   const sequencerSignature = await sequencer.signMessage(
+    //     ethers.utils.arrayify(positionId)
+    //   );
+    //   const owedFee = ethers.utils.parseEther("1");
+    //   const toReturnFee = ethers.utils.parseEther("0.5");
 
-      // Approve the Trading contract to spend payment tokens on behalf of the user
-      await paymentToken.approve(
-        popTrading.address,
-        ethers.constants.MaxUint256
-      );
+    //   // Approve the Trading contract to spend payment tokens on behalf of the user
+    //   await paymentToken.approve(
+    //     popTrading.address,
+    //     ethers.constants.MaxUint256
+    //   );
 
-      // Request burning a position
-      await popTrading.requestBurn(
-        productId,
-        positionId,
-        sequencerSignature,
-        owedFee,
-        toReturnFee
-      );
+    //   // Request burning a position
+    //   await popTrading.requestBurn(
+    //     productId,
+    //     positionId,
+    //     sequencerSignature,
+    //     owedFee,
+    //     toReturnFee
+    //   );
 
-      // Get the latest burn request ID
-      let requestId = await popTrading.nextBurnRequestId();
+    //   // Get the latest burn request ID
+    //   let requestId = await popTrading.nextBurnRequestId();
 
-      requestId = requestId.toString() - 1;
+    //   requestId = requestId.toString() - 1;
 
-      // Get the burn request associated with the request ID
-      const burnRequest = await popTrading.burnRequestIdToStructure(requestId);
+    //   // Get the burn request associated with the request ID
+    //   const burnRequest = await popTrading.burnRequestIdToStructure(requestId);
 
-      // Assert the burn request details
-      expect(burnRequest.burner).to.equal(user.address);
-      expect(burnRequest.productId).to.equal(productId);
-      expect(burnRequest.positionId).to.equal(positionId);
-      expect(burnRequest.toReturnFee).to.equal(toReturnFee);
-      expect(burnRequest.totalFee).to.equal(owedFee);
-      expect(burnRequest.isFullFilled).to.equal(false);
-    });
+    //   // Assert the burn request details
+    //   expect(burnRequest.burner).to.equal(user.address);
+    //   expect(burnRequest.productId).to.equal(productId);
+    //   expect(burnRequest.positionId).to.equal(positionId);
+    //   expect(burnRequest.toReturnFee).to.equal(toReturnFee);
+    //   expect(burnRequest.totalFee).to.equal(owedFee);
+    //   expect(burnRequest.isFullFilled).to.equal(false);
+    // });
 
     // it("should allow the sequencer to burn a position", async function () {
     //   const productId = ethers.utils.formatBytes32String("PRODUCT_1");

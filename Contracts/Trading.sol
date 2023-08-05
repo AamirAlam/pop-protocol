@@ -151,7 +151,8 @@ contract POP_Trading is Ownable, ReentrancyGuard {
     event PositionStatus(
         address indexed owner,
         bytes indexed productPositionPair,
-        bool indexed isOpen
+        uint256 indexed requestId,
+        bool isOpen
     );
     /// MODIFIERS ===========================================================
 
@@ -309,7 +310,12 @@ contract POP_Trading is Ownable, ReentrancyGuard {
             bytes32(positionId)
         );
 
-        emit PositionStatus(associatedRequest.receiver, productPosition, true);
+        emit PositionStatus(
+            associatedRequest.receiver,
+            productPosition,
+            _requestId,
+            true
+        );
 
         return positionId;
     }
@@ -420,7 +426,12 @@ contract POP_Trading is Ownable, ReentrancyGuard {
             bytes32(associatedRequest.positionId)
         );
 
-        emit PositionStatus(associatedRequest.burner, productPosition, false);
+        emit PositionStatus(
+            associatedRequest.burner,
+            productPosition,
+            _requestId,
+            false
+        );
 
         associatedRequest.isFullFilled = true;
     }
