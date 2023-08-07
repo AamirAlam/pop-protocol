@@ -8,6 +8,8 @@
     "verify-trading": "hardhat run  --network mumbai scripts/verifyTrading.js",
     "add-products": "hardhat run  --network mumbai scripts/addProducts.js",
     "request-mint": "hardhat run  --network mumbai scripts/requestPosition.js",
+    "sequencer-mint": "hardhat run  --network mumbai scripts/mintSeq.js",
+    "request-burn": "hardhat run  --network mumbai scripts/requestBurn.js",
     "clean": "hardhat clean"
   },
   "devDependencies": {
