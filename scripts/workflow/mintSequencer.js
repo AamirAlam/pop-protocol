@@ -8,7 +8,7 @@ const {
 
 const { ethers } = require("ethers");
 
-const productId = ethers.utils.formatBytes32String("PRODUCT_1");
+// const productId = ethers.utils.formatBytes32String("PRODUCT_1");
 
 const PROVIDER = process.env.MUMBAI_RPC;
 const SEQUENCER = process.env.PK_SEQUENCER;
@@ -25,7 +25,7 @@ async function getProductAndUserSpec(id) {
 
   const productId = mintRequest["productId"];
   const productInfo = await trading.getProduct(productId);
-  const limit = productInfo.limit;
+  const limit = productInfo.intervals;
 
   return [limit, strikeL, strikeU];
 }
@@ -35,8 +35,8 @@ async function createPositionArray(limit, strikeL, strikeU) {
   const lambda = 43;
   const positionArray = new Array(Number(limit)).fill(0);
 
-  // For strikeL 2 and strikeU 4 we will use include 1st-3rd index
-  for (var i = strikeL - 1; i < strikeU; i++) {
+  // For strikeL:2 and strikeU:5 we will use include 1st-4th index.
+  for (var i = strikeL; i <= strikeU; i++) {
     positionArray[i] = lambda;
   }
 
@@ -44,7 +44,9 @@ async function createPositionArray(limit, strikeL, strikeU) {
 }
 
 async function execute(id, positions) {
-  const txn = await trading.mintPositionSequencer(id, positions);
+  const txn = await trading.mintPositionSequencer(id, positions, {
+    gasLimit: 10000000,
+  });
   const receipt = await txn.wait(1);
 
   console.log(receipt);
@@ -53,15 +55,16 @@ async function execute(id, positions) {
 /// Should be a valid request id.
 async function main() {
   try {
-    const [limit, strikeL, strikeU] = await getProductAndUserSpec(3);
-    console.log(limit.toString(), strikeL.toString(), strikeU.toString());
+    const requestId = 1;
+
+    const [limit, strikeL, strikeU] = await getProductAndUserSpec(requestId);
 
     const positionArray = await createPositionArray(limit, strikeL, strikeU);
     console.log(positionArray);
 
     // AFTER A POSITION IS MINTED, CHECK THE mintRequestStructure SCRIPT AND ENTER THE ID
     // AND SEE THE isFullFilled IS true AND WE HAVE AN ASSOCIATED positionId.
-    await execute(3, positionArray);
+    await execute(requestId, positionArray);
   } catch (err) {
     console.error(err);
   }

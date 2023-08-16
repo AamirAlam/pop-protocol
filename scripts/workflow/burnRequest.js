@@ -27,7 +27,7 @@ const trading = new ethers.Contract(tradingAddress, tradingABI, wallet);
 
 async function getSequencerRSV(positionId, productId) {
   try {
-    const message = `Position ${positionId} Product ${productId}`;
+    // const message = `Position ${positionId} Product ${productId}`;
 
     const payload = ethers.utils.defaultAbiCoder.encode(
       ["string", "bytes32", "string", "uint256"],
@@ -74,7 +74,7 @@ async function main() {
 
   const productId =
     "0x50524f445543545f310000000000000000000000000000000000000000000000";
-  const positionId = "2";
+  const positionId = "1";
 
   const [toCheck, r, s, v] = await getSequencerRSV(positionId, productId);
 

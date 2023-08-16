@@ -30,7 +30,6 @@ struct PositionToken {
     uint256[] position;
     uint256[] multiplicator;
     address owner;
-    uint256 fee; //NOT SURE ABOUT THIS
     uint256 size;
     uint256 strikeUpper;
     uint256 strikeLower;
@@ -67,13 +66,13 @@ contract POP_Positions is Ownable, ERC721, IPositions {
         bytes32 _parentProduct,
         string memory _productName,
         string memory _productSymbol,
-        uint256 _limit
+        uint256 _intervals
     ) ERC721(_productName, _productSymbol) {
         nextTokenId.increment();
 
         PARENT_PRODUCT = _parentProduct;
         POP_TRADING_CONTRACT = _msgSender();
-        SELF_LIMIT = _limit;
+        SELF_LIMIT = _intervals;
     }
 
     function getNextId() external view returns (uint256) {
@@ -100,16 +99,8 @@ contract POP_Positions is Ownable, ERC721, IPositions {
     ) external onlyPOP_Trading returns (uint256) {
         PositionToken memory userToken;
 
-        uint256[] memory position = new uint256[](SELF_LIMIT);
-        uint256[] memory multiplicator = new uint256[](SELF_LIMIT);
-
-        for (uint i = 0; i < SELF_LIMIT; i++) {
-            position[i] = _positions[i];
-            multiplicator[i] = _multiplicator[i];
-        }
-
-        userToken.position = position;
-        userToken.multiplicator = multiplicator;
+        userToken.position = _positions;
+        userToken.multiplicator = _multiplicator;
         userToken.owner = _owner;
         userToken.size = _size;
         userToken.strikeUpper = _strikeUpper;

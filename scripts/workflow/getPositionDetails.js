@@ -2,7 +2,7 @@ const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 
 // The address is for the PRODUCT 1
-const positionAddress = "0x70A26a64b21461D190945dCbD9e8495c46306157";
+const positionAddress = "0xF6F142Cd0AE69c42A4774C1a5bfc561d678A57e9";
 const {
   abi: positionABI,
 } = require("../artifacts/contracts/Positions.sol/POP_Positions.json");
@@ -27,7 +27,7 @@ async function getPositionDetails(id) {
 }
 
 async function main() {
-  await getPositionDetails(2);
+  await getPositionDetails(1);
 }
 
 main();

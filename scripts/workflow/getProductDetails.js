@@ -16,10 +16,15 @@ const wallet = new ethers.Wallet(DEPLOYER, provider);
 
 const trading = new ethers.Contract(tradingAddress, tradingABI, wallet);
 
-async function getRequestIdStructure(id) {
-  const mintRequest = await trading.mintRequestIdToStructure(id);
-  console.log(mintRequest);
+async function getAll(productId) {
+  const data = await trading.getProduct(productId);
+  console.log(data);
 }
 
-//Min - 1
-getRequestIdStructure(1);
+async function main() {
+  const productId =
+    "0x50524f445543545f310000000000000000000000000000000000000000000000";
+
+  getAll(productId);
+}
+main();

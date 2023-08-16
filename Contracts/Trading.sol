@@ -28,6 +28,8 @@ error ERR_POP_Trading_TokenTransferFailed();
 error ERR_POP_Trading_UserMintRequestIsInvalid();
 error ERR_POP_Trading_UserBurnRequestIsInvalid();
 error ERR_POP_Trading_NotThePositionOwner();
+error ERR_POP_Trading_NotAnOperator();
+error ERR_POP_Trading_InvalidIntervalSupplyRatio();
 
 /// @notice Structure that represents a Minting Request initiated by the user and holds relevant info.
 /// @param receiver The address that initiated the request.
@@ -59,8 +61,8 @@ struct BurnRequest {
     address burner;
     bytes32 productId;
     uint256 positionId;
-    uint256 toReturnFee;
     uint256 totalFee;
+    uint256 toReturnFee;
     bool isFullFilled;
 }
 
@@ -68,16 +70,21 @@ struct BurnRequest {
 /// Created by the exchange. BPS:"basis points".
 /// @param supplyBase The variable q mentioned in the specifications which represent the count of tokens over all the intervals n.
 /// @param multiplicatorBase Created to help in the maths involved that affects the tokens at each position based on certain rules.
-/// @param limit The current upper bound of valid values in the supplyBase and multiplicatorBase ie the limit of say Qn.
-/// @param supply Total supply of the given product. Sum of Q1, Q2 .... Qn
+/// @param minPrice The lower bound of the price range.
+/// @param maxPrice The upper bound of the price range.
+/// @param intervals The current upper bound of valid values in the supplyBase and multiplicatorBase ie the limit of say Qn.
+/// @param totalSupply Total supply of the given product. Sum of supplyBase.
 /// @param margin Collateral that a trader must deposit with their broker or exchange in order to open and maintain a leveraged trading position.
-/// @param fee Platform fee.
+/// @param fee The fee for a given product. Is different for each product.
+/// @param positionContract The contract address that represents a given product. Is an ERC721.
 struct Product {
     uint256[] supplyBase;
     uint256[] multiplicatorBase;
-    uint256 limit;
-    uint256 supply;
-    uint256 margin;
+    uint256 minPrice;
+    uint256 maxPrice;
+    uint256 intervals;
+    uint256 totalSupply;
+    uint256 margin; // We don't need this since we have the cuts calculated in the yellow paper
     uint256 fee; // In sbps (10^6). 0.5% = 5000. 0.025% = 250
     address positionContract;
 }
@@ -85,8 +92,6 @@ struct Product {
 contract POP_Trading is Ownable, ReentrancyGuard {
     /// VARIABLES ==========================================================
 
-    // using ECDSA for bytes32;
-    using Address for address payable;
     using Counters for Counters.Counter;
 
     /// @notice To the get the next mint/burn request id which hasn't been used before.
@@ -99,19 +104,20 @@ contract POP_Trading is Ownable, ReentrancyGuard {
     /// @notice All the associated contracts the Trading contract interacts with in some form.
     address public sequencerAddress;
     address public vaultStakingAddress;
-    // address public vaultAddress;
+
     /// @notice USDC preferrably.
     IERC20 public paymentToken;
 
     /// @notice Product Id -> Unique Product. Product being the asset being sold on the platform.
     mapping(bytes32 => Product) public products;
+
     /// @notice Product Id -> Position Contract Address. Each new product when created also deploys an ERC721 too.
-    /// @notice Having a single contract for every position would create chaos since its will be harder to manage down the line
-    /// @notice and really hard to scale.
+    /// @notice Having a single contract for every position would create chaos since its will be harder to
+    /// manage down the line and really hard to scale.
     mapping(bytes32 => address) public productToPositionContract;
 
-    /// @notice To track incoming mint/burn requests. Initiated by the user. Uses the nextMintRequestId/nextBurnRequestId
-    /// @notice to map each new id with a respective struct.
+    /// @notice To track incoming mint/burn requests. Initiated by the user. Uses the
+    /// nextMintRequestId/nextBurnRequestId to map each new id with a respective struct.
     mapping(uint256 => MintRequest) public mintRequestIdToStructure;
     mapping(uint256 => BurnRequest) public burnRequestIdToStructure;
 
@@ -139,22 +145,36 @@ contract POP_Trading is Ownable, ReentrancyGuard {
     /// @param product The struct that defines the product.
     event ProductAdded(
         bytes32 indexed id,
-        string indexed name,
-        string indexed symbol,
+        bytes32 indexed name,
+        bytes32 indexed symbol,
         Product product
     );
 
     /// @notice Used to track the current activity for a given user.
     /// @param owner The trader in question.
-    /// @param productPositionPair Combination of the ProductId and the PositionId encoded.
-    /// @param isOpen The latest status for a PPP.
+    /// @param productId The unique identifier for the product.
+    /// @param positionId The unique identifier for the position opened at the product's ERC721.
+    /// @param status The latest status for a PPP. The valid values are :
+    /// Mint Queue - 1
+    /// Open  - 2
+    /// Burn Queue - 3
+    /// Burned - 4
+
     event PositionStatus(
         address indexed owner,
-        bytes indexed productPositionPair,
-        uint256 indexed requestId,
-        bool isOpen
+        bytes32 indexed productId,
+        uint256 indexed positionId,
+        uint256 mintRequestId,
+        uint256 burnRequestId,
+        uint256 status
     );
     /// MODIFIERS ===========================================================
+
+    modifier isOperator() {
+        if (_msgSender() != sequencerAddress && _msgSender() != owner())
+            revert ERR_POP_Trading_NotAnOperator();
+        _;
+    }
 
     /// @dev Functions only to be called by the sequencerAddress.
     modifier onlySequencer() {
@@ -165,14 +185,14 @@ contract POP_Trading is Ownable, ReentrancyGuard {
 
     /// @dev Check if the provided productId is valid or not.
     modifier validProduct(bytes32 _productId) {
-        if (products[_productId].limit == 0)
+        if (products[_productId].intervals == 0)
             revert ERR_POP_Trading_InvalidProductId();
         _;
     }
 
     /// @dev Check if the given position even exists for a given prodcut.
     modifier validPosition(bytes32 _productId, uint256 _positionId) {
-        if (products[_productId].limit == 0)
+        if (products[_productId].intervals == 0)
             revert ERR_POP_Trading_InvalidProductId();
 
         IPositions positionContract = IPositions(
@@ -184,7 +204,8 @@ contract POP_Trading is Ownable, ReentrancyGuard {
         _;
     }
 
-    /// CONTRACT STARTS =====================================================
+    /// CONTRACT STARTS ===================================================
+
     constructor(
         address _paymentToken,
         address _sequencer,
@@ -197,13 +218,6 @@ contract POP_Trading is Ownable, ReentrancyGuard {
         nextMintRequestId.increment();
         nextBurnRequestId.increment();
     }
-
-    /// @notice FUNCTIONS =================================================
-
-    /// @dev These should be allowed to be updated but not sure.
-    function updateSupplyBase() internal {}
-
-    function updateMultiplicatorBase() internal {}
 
     /// ===================================================================
 
@@ -225,6 +239,12 @@ contract POP_Trading is Ownable, ReentrancyGuard {
         uint256 _strikeUpper
     ) external validProduct(_productId) nonReentrant returns (uint256) {
         uint256 fee = products[_productId].fee;
+
+        require(
+            _strikeLower < products[_productId].intervals &&
+                _strikeUpper < products[_productId].intervals,
+            "Strike price out of bounds."
+        );
 
         /// @dev Need to use something with a decimal value since we cant directly use 1 as decimal values are discarded.
         uint256 protocolCut = _size * fee;
@@ -261,6 +281,14 @@ contract POP_Trading is Ownable, ReentrancyGuard {
 
         /// This event will be used to contruct the params when the sequencer will be minting the position.
         emit MintRequested(_msgSender(), nextMintRequestId.current());
+        emit PositionStatus(
+            _msgSender(),
+            _productId,
+            0,
+            nextMintRequestId.current(),
+            0,
+            1
+        );
 
         nextMintRequestId.increment();
 
@@ -289,12 +317,13 @@ contract POP_Trading is Ownable, ReentrancyGuard {
             productToPositionContract[associatedRequest.productId]
         );
 
-        uint256[] memory _multiplicator = products[associatedRequest.productId]
-            .multiplicatorBase;
+        Product storage associatedProduct = products[
+            associatedRequest.productId
+        ];
 
         uint256 positionId = positionContract.mint(
             _positions,
-            _multiplicator,
+            associatedProduct.multiplicatorBase,
             associatedRequest.receiver,
             associatedRequest.size,
             associatedRequest.strikeUpper,
@@ -305,16 +334,13 @@ contract POP_Trading is Ownable, ReentrancyGuard {
         associatedRequest.positionId = positionId;
         associatedRequest.isFullFilled = true;
 
-        bytes memory productPosition = abi.encode(
-            associatedRequest.productId,
-            bytes32(positionId)
-        );
-
         emit PositionStatus(
             associatedRequest.receiver,
-            productPosition,
+            associatedRequest.productId,
+            positionId,
             _requestId,
-            true
+            0,
+            2
         );
 
         return positionId;
@@ -357,13 +383,20 @@ contract POP_Trading is Ownable, ReentrancyGuard {
             signatureUsed[_sequencerSignature]
         ) revert ERR_POP_Trading_SequencerSignatureInvalid();
 
-        if (paymentToken.allowance(_msgSender(), address(this)) < _owedFee)
-            revert ERR_POP_Trading_InsufficientApprovedAmount();
+        if (
+            paymentToken.allowance(_msgSender(), address(this)) <
+            _owedFee + _toReturnFee
+        ) revert ERR_POP_Trading_InsufficientApprovedAmount();
+
+        if (
+            !paymentToken.transferFrom(
+                _msgSender(),
+                address(this),
+                _owedFee + _toReturnFee
+            )
+        ) revert ERR_POP_Trading_TokenTransferFailed();
 
         // Protocol collects [M(q + q′) −M(q)] ∗ fee
-        if (!paymentToken.transferFrom(_msgSender(), address(this), _owedFee))
-            revert ERR_POP_Trading_TokenTransferFailed();
-
         // Pay [M(q + q′) −M(q)] ∗ (1−fee) to user
         if (!paymentToken.transfer(_msgSender(), _toReturnFee))
             revert ERR_POP_Trading_TokenTransferFailed();
@@ -384,6 +417,14 @@ contract POP_Trading is Ownable, ReentrancyGuard {
         ] = associatedRequest;
 
         emit BurnRequested(_msgSender(), nextBurnRequestId.current());
+        emit PositionStatus(
+            _msgSender(),
+            _productId,
+            _positionId,
+            0,
+            nextBurnRequestId.current(),
+            3
+        );
 
         nextBurnRequestId.increment();
 
@@ -411,7 +452,7 @@ contract POP_Trading is Ownable, ReentrancyGuard {
         Product storage associatedProduct = products[
             associatedRequest.productId
         ];
-        uint256 limit = associatedProduct.limit;
+        uint256 limit = associatedProduct.intervals;
         for (uint256 i = 0; i < limit; i++)
             // Set qi = qi −q′i
             associatedProduct.supplyBase[i] = _updatedPositions[i];
@@ -421,16 +462,13 @@ contract POP_Trading is Ownable, ReentrancyGuard {
         );
         positionContract.burn(associatedRequest.positionId);
 
-        bytes memory productPosition = abi.encode(
-            associatedRequest.productId,
-            bytes32(associatedRequest.positionId)
-        );
-
         emit PositionStatus(
             associatedRequest.burner,
-            productPosition,
+            associatedRequest.productId,
+            associatedRequest.positionId,
+            0,
             _requestId,
-            false
+            4
         );
 
         associatedRequest.isFullFilled = true;
@@ -496,11 +534,11 @@ contract POP_Trading is Ownable, ReentrancyGuard {
 
         uint256[] memory supplyBase = currentProduct.supplyBase;
         uint256[] memory temp;
-        uint256 limit = currentProduct.limit;
+        uint256 limit = currentProduct.intervals;
 
         uint currentM = getM(supplyBase, temp, limit, false);
 
-        uint256 numerator = 10 ** DECIMALS * currentProduct.supply;
+        uint256 numerator = 10 ** DECIMALS * currentProduct.totalSupply;
         uint256 histogramValue = numerator / currentM;
         return histogramValue;
     }
@@ -530,31 +568,81 @@ contract POP_Trading is Ownable, ReentrancyGuard {
     }
 
     /// @notice ADMIN FUNCTIONS ====================================================
+    function bytes32ToString(
+        bytes32 _bytes32Data
+    ) public pure returns (string memory) {
+        bytes memory bytesData = new bytes(32);
+        for (uint i = 0; i < 32; i++) {
+            bytesData[i] = _bytes32Data[i];
+        }
+        return string(bytesData);
+    }
 
+    /// @notice To add a new product with the provided params.
+    /// @dev IMPORTANT : In the product params, for the max/min price, You need to make sure
+    /// the difference of max and min is divisible by the intervals provided with no remainder.
     function addProduct(
         bytes32 _productId,
-        string memory _name,
-        string memory _symbol,
+        bytes32 _name,
+        bytes32 _symbol,
         Product memory _productParams
     ) external onlyOwner {
-        Product storage product = products[_productId];
+        require(products[_productId].intervals == 0, "product-exists");
 
-        require(product.limit == 0, "product-exists");
+        uint256 intervals = _productParams.intervals;
+        uint256 intervalSupply = _productParams.totalSupply /
+            _productParams.intervals;
 
-        uint256 _limit = _productParams.limit;
-        uint256[] memory multiplicatorBase = new uint256[](_limit);
-        uint256[] memory supplyBase = new uint256[](_limit);
+        if (
+            intervalSupply * _productParams.intervals !=
+            _productParams.totalSupply
+        ) revert ERR_POP_Trading_InvalidIntervalSupplyRatio();
 
-        for (uint i = 0; i < _limit; i++) {
-            supplyBase[i] = 0;
-            multiplicatorBase[i] = 1;
+        uint256[] memory supplyBase;
+        uint256[] memory multiplicatorBase;
+
+        // supplyBase[intervals - 1] = 0;
+
+        assembly {
+            // Calculate the size of the array in bytes
+            let size := mul(intervals, 32)
+            // Allocate memory for the array
+            multiplicatorBase := mload(0x40)
+            // Set the length of the array
+            mstore(multiplicatorBase, intervals)
+            // Initialize all elements to 1
+            for {
+                let i := 0
+            } lt(i, intervals) {
+                i := add(i, 1)
+            } {
+                mstore(add(multiplicatorBase, mul(add(i, 1), 32)), 1)
+            }
+            // Update the free memory pointer
+            mstore(0x40, add(multiplicatorBase, add(size, 32)))
+        }
+
+        assembly {
+            let size := mul(intervals, 32)
+            supplyBase := mload(0x40)
+            mstore(supplyBase, intervals)
+
+            for {
+                let i := 0
+            } lt(i, intervals) {
+                i := add(i, 1)
+            } {
+                mstore(add(supplyBase, mul(add(i, 1), 32)), intervalSupply)
+            }
+
+            mstore(0x40, add(supplyBase, add(size, 32)))
         }
 
         POP_Positions associatedPositionContract = new POP_Positions(
             _productId,
-            _name,
-            _symbol,
-            _limit
+            bytes32ToString(_name),
+            bytes32ToString(_symbol),
+            intervals
         );
 
         productToPositionContract[_productId] = address(
@@ -564,8 +652,10 @@ contract POP_Trading is Ownable, ReentrancyGuard {
         products[_productId] = Product({
             supplyBase: supplyBase,
             multiplicatorBase: multiplicatorBase,
-            limit: _productParams.limit,
-            supply: _productParams.supply,
+            minPrice: _productParams.minPrice,
+            maxPrice: _productParams.maxPrice,
+            intervals: _productParams.intervals,
+            totalSupply: _productParams.totalSupply,
             margin: _productParams.margin,
             fee: _productParams.fee,
             positionContract: address(associatedPositionContract)
@@ -574,15 +664,48 @@ contract POP_Trading is Ownable, ReentrancyGuard {
         emit ProductAdded(_productId, _name, _symbol, products[_productId]);
     }
 
+    /// UPDATE FUNCTIONS =========================================
+    /// @dev These should be allowed to be updated but not sure.
+
+    /// @notice To update the supplyBase for a given product.
+    function updateSupplyBase(
+        bytes32 _productId,
+        uint256[] memory _newSupply,
+        uint256 _totalSupply
+    ) external isOperator validProduct(_productId) {
+        Product storage product = products[_productId];
+
+        for (uint i = 0; i < product.intervals; i++) {
+            product.supplyBase[i] = _newSupply[i];
+        }
+
+        product.totalSupply = _totalSupply;
+    }
+
+    function updateMultiplicatorBase(
+        bytes32 _productId,
+        uint256[] memory _newMultiplicator
+    ) external isOperator validProduct(_productId) {
+        Product storage product = products[_productId];
+
+        for (uint i = 0; i < product.intervals; i++) {
+            product.multiplicatorBase[i] = _newMultiplicator[i];
+        }
+    }
+
     /// @notice Can be used to discontinue an asset by setting the limit to 0.
     function updateProduct(
         bytes32 _productId,
         Product memory _newProductParams
-    ) external onlyOwner {
+    ) external onlyOwner validProduct(_productId) {
         Product storage product = products[_productId];
-        require(product.limit > 0, "Product-does-not-exist");
 
-        product.supply = _newProductParams.supply;
+        product.supplyBase = _newProductParams.supplyBase;
+        product.multiplicatorBase = _newProductParams.multiplicatorBase;
+        product.minPrice = _newProductParams.minPrice;
+        product.maxPrice = _newProductParams.maxPrice;
+        product.intervals = _newProductParams.intervals;
+        product.totalSupply = _newProductParams.totalSupply;
         product.margin = _newProductParams.margin;
         product.fee = _newProductParams.fee;
         product.positionContract = _newProductParams.positionContract;

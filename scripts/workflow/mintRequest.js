@@ -33,7 +33,6 @@ async function request(size, strikeU, strikeL) {
       strikeU
     );
     const receipt = await txn.wait(1);
-
     return receipt;
   } catch (err) {}
 }
