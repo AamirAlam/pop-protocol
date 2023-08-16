@@ -2,6 +2,16 @@
 
 pragma solidity ^0.8.0;
 
+/// @title POP-Protocol-v1 Position/Asset Contract.
+/// @author Anuj Tanwar aka br0wnD3v
+
+/// @notice Trading contract deploys this contract each time a new asset is to be traded/listed.
+/// Is an ERC721 contract.
+/// Mint/Burn functions enable a user to hold a Perpetual position or burn the position.
+
+/// @notice In Testing Phase.
+/// @notice Not Audited.
+
 import "./interfaces/IPositions.sol";
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -20,7 +30,6 @@ struct PositionToken {
     uint256[] position;
     uint256[] multiplicator;
     address owner;
-    uint256 fee;
     uint256 size;
     uint256 strikeUpper;
     uint256 strikeLower;
@@ -35,13 +44,9 @@ contract POP_Positions is Ownable, ERC721, IPositions {
     address public immutable POP_TRADING_CONTRACT;
     bytes32 public immutable PARENT_PRODUCT;
 
-    mapping(uint256 => PositionToken) private idToPosition;
+    uint256 public immutable SELF_LIMIT;
 
-    event PositionStatus(
-        address indexed owner,
-        uint256 indexed positionId,
-        bool indexed isOpen
-    );
+    mapping(uint256 => PositionToken) private idToPosition;
 
     modifier onlyPOP_Trading() {
         if (_msgSender() != POP_TRADING_CONTRACT)
@@ -60,12 +65,14 @@ contract POP_Positions is Ownable, ERC721, IPositions {
     constructor(
         bytes32 _parentProduct,
         string memory _productName,
-        string memory _productSymbol
+        string memory _productSymbol,
+        uint256 _intervals
     ) ERC721(_productName, _productSymbol) {
         nextTokenId.increment();
 
         PARENT_PRODUCT = _parentProduct;
         POP_TRADING_CONTRACT = _msgSender();
+        SELF_LIMIT = _intervals;
     }
 
     function getNextId() external view returns (uint256) {
@@ -108,8 +115,6 @@ contract POP_Positions is Ownable, ERC721, IPositions {
 
         nextTokenId.increment();
 
-        emit PositionStatus(_owner, positionId, true);
-
         return positionId;
     }
 
@@ -120,8 +125,6 @@ contract POP_Positions is Ownable, ERC721, IPositions {
 
         currentPosition.isOpen = false;
         _burn(_positionId);
-
-        emit PositionStatus(currentPosition.owner, _positionId, false);
     }
 
     function update(

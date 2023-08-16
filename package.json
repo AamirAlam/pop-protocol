@@ -4,13 +4,12 @@
   "scripts": {
     "test": "npx hardhat test",
     "compile": "npx hardhat compile",
-    "deploy": "hardhat run scripts/deployAccumulation.js --network matictest",
-    "deploy-test": "hardhat run scripts/0_deployAndTestTrading.js",
-    "deploy-accumulation": "hardhat run --network matictest scripts/deployAccumulation.js",
-    "deploy-faucets": "hardhat run --network matictest scripts/deployFaucet.js",
-    "verify-contract-faucet": "hardhat verify --contract contracts/ERC20Faucet.sol:FaucetToken --network matictest 0xE118429D095de1a93951c67D04B523fE5cbAB62c",
-    "verify-contract-sleep": "hardhat verify --contract contracts/ERC20Sleep.sol:SleepToken --network matictest 0xb94d207a3fBdb312cef2e5dBEb7C22A76516BE37",
-    "verify-contract-accumulation": "hardhat verify --network matictest 0x88f07B2eEE714bc2133eA9F973E76c9724b66042 0xE118429D095de1a93951c67D04B523fE5cbAB62c 0xE592427A0AEce92De3Edee1F18E0157C05861564",
+    "deploy-trading": "npx hardhat run  --network mumbai scripts/deployTrading.js",
+    "verify-trading": "hardhat run  --network mumbai scripts/verifyTrading.js",
+    "add-products": "hardhat run  --network mumbai scripts/addProducts.js",
+    "request-mint": "hardhat run  --network mumbai scripts/requestPosition.js",
+    "sequencer-mint": "hardhat run  --network mumbai scripts/mintSeq.js",
+    "request-burn": "hardhat run  --network mumbai scripts/requestBurn.js",
     "clean": "hardhat clean"
   },
   "devDependencies": {

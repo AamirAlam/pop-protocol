@@ -1,6 +1,7 @@
 // Import the necessary dependencies
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { toWei } = require("../../transaction-service/_helpers/utils");
 
 describe("Trading contract: ", function () {
   let popTrading;
@@ -41,12 +42,11 @@ describe("Trading contract: ", function () {
     paymentToken = await DummyToken.deploy(ethers.utils.parseEther("1000000"));
     await paymentToken.deployed();
 
-    const PopTrading = await ethers.getContractFactory("Trading");
+    const PopTrading = await ethers.getContractFactory("POP_Trading");
     popTrading = await PopTrading.deploy(
       paymentToken.address,
       sequencer.address,
-      stakingContract.address,
-      addr1.address
+      stakingContract.address
     );
     await popTrading.deployed();
   });
@@ -206,29 +206,43 @@ describe("Trading contract: ", function () {
   describe("Mint NFTs", function () {
     it("should allow a user to request a position", async function () {
       const productId = ethers.utils.formatBytes32String("PRODUCT_1");
-      const size = 10;
+
+      // Approve the Trading contract to spend payment tokens on behalf of the user
+
+      const productAdded = await popTrading.getProduct(productId);
+
+      const fee = productAdded.fee;
+      const size = "10";
+      const maxfee = "1000000";
       const strikeLower = 100;
       const strikeUpper = 200;
 
-      // Approve the Trading contract to spend payment tokens on behalf of the user
-      await paymentToken
-        .connect(user)
-        .approve(popTrading.address, ethers.constants.MaxUint256);
+      const protocolCut = size * fee;
+      const vaultCut = size * (maxfee - fee);
+      const toApprove = (protocolCut + vaultCut).toString();
 
-      console.log("approved ");
+      // await mock.approve(Trading.address, toApprove);
+      await paymentToken.approve(popTrading.address, toApprove);
+
       // Request a position
-      const trx = await popTrading
-        .connect(user)
-        .requestPosition(productId, size, strikeLower, strikeUpper);
-      console.log("position requestion", trx);
+      await popTrading.requestPosition(
+        productId,
+        size,
+        strikeLower,
+        strikeUpper
+      );
+      // console.log("position requestion", trx);
       // Get the latest mint request ID
-      const requestId = await popTrading.nextMintRequestId();
-      console.log("request id ", requestId);
+      let requestId = await popTrading.nextMintRequestId();
+      requestId = requestId.toString() - 1;
+
+      // console.log("request id ", requestId);
       // // Get the mint request associated with the request ID
       const mintRequest = await popTrading.mintRequestIdToStructure(requestId);
 
+      // console.log("min req", mintRequest);
       // Assert the mint request details
-      expect(mintRequest.receiver).to.equal(user.address);
+      expect(mintRequest.receiver).to.equal(owner.address);
       expect(mintRequest.productId).to.equal(productId);
       expect(mintRequest.size).to.equal(size);
       expect(mintRequest.strikeLower).to.equal(strikeLower);
@@ -237,47 +251,59 @@ describe("Trading contract: ", function () {
       expect(mintRequest.isFullFilled).to.equal(false);
     });
 
-    // it("should allow the sequencer to mint a position", async function () {
-    //   const productId = ethers.utils.formatBytes32String("PRODUCT_1");
-    //   const size = 10;
-    //   const strikeLower = 100;
-    //   const strikeUpper = 200;
+    it("should allow the sequencer to mint a position", async function () {
+      const productId = ethers.utils.formatBytes32String("PRODUCT_1");
 
-    //   // Approve the Trading contract to spend payment tokens on behalf of the user
-    //   await paymentToken
-    //     .connect(user)
-    //     .approve(popTrading.address, ethers.constants.MaxUint256);
+      const productAdded = await popTrading.getProduct(productId);
 
-    //   // Request a position
-    //   await popTrading
-    //     .connect(user)
-    //     .requestPosition(productId, size, strikeLower, strikeUpper);
+      const fee = productAdded.fee;
+      const size = "10";
+      const maxfee = "1000000";
+      const strikeLower = 100;
+      const strikeUpper = 200;
 
-    //   // Get the latest mint request ID
-    //   const requestId = await popTrading.nextMintRequestId();
+      const protocolCut = size * fee;
+      const vaultCut = size * (maxfee - fee);
+      const toApprove = (protocolCut + vaultCut).toString();
 
-    //   // Get the mint request associated with the request ID
-    //   const mintRequest = await popTrading.mintRequestIdToStructure(requestId);
+      // Approve the Trading contract to spend payment tokens on behalf of the user
+      await paymentToken.approve(popTrading.address, toApprove);
 
-    //   // Sign the mint request with the sequencer address
-    //   const sequencerSignature = await sequencer.signMessage(
-    //     ethers.utils.arrayify(requestId)
-    //   );
+      // Request a position
+      await popTrading.requestPosition(
+        productId,
+        size,
+        strikeLower,
+        strikeUpper
+      );
 
-    //   // Mint the position as the sequencer
-    //   await popTrading
-    //     .connect(sequencer)
-    //     .mintPositionSequencer(requestId, [10, 20, 30]);
+      // Get the latest mint request ID
+      let requestId = await popTrading.nextMintRequestId();
 
-    //   // Get the mint request after it has been fulfilled
-    //   const updatedMintRequest = await popTrading.mintRequestIdToStructure(
-    //     requestId
-    //   );
+      requestId = requestId.toString() - 1;
 
-    //   // Assert the mint request has been fulfilled
-    //   // expect(updatedMintRequest.isFullFilled).to.be.true;
-    //   expect(updatedMintRequest.positionId).to.not.equal(0);
-    // });
+      // Get the mint request associated with the request ID
+      const mintRequest = await popTrading.mintRequestIdToStructure(requestId);
+
+      // Sign the mint request with the sequencer address
+      const sequencerSignature = await sequencer.signMessage(
+        ethers.utils.arrayify(requestId)
+      );
+
+      // Mint the position as the sequencer
+      await popTrading
+        .connect(sequencer)
+        .mintPositionSequencer(requestId, [10, 20, 30]);
+
+      // Get the mint request after it has been fulfilled
+      const updatedMintRequest = await popTrading.mintRequestIdToStructure(
+        requestId
+      );
+
+      // Assert the mint request has been fulfilled
+      expect(updatedMintRequest.isFullFilled).to.equal(true);
+      expect(updatedMintRequest.positionId).to.not.equal(0);
+    });
 
     // it("should allow a user to request burning a position", async function () {
     //   const productId = ethers.utils.formatBytes32String("PRODUCT_1");
@@ -289,23 +315,24 @@ describe("Trading contract: ", function () {
     //   const toReturnFee = ethers.utils.parseEther("0.5");
 
     //   // Approve the Trading contract to spend payment tokens on behalf of the user
-    //   await paymentToken
-    //     .connect(user)
-    //     .approve(popTrading.address, ethers.constants.MaxUint256);
+    //   await paymentToken.approve(
+    //     popTrading.address,
+    //     ethers.constants.MaxUint256
+    //   );
 
     //   // Request burning a position
-    //   await popTrading
-    //     .connect(user)
-    //     .requestBurn(
-    //       productId,
-    //       positionId,
-    //       sequencerSignature,
-    //       owedFee,
-    //       toReturnFee
-    //     );
+    //   await popTrading.requestBurn(
+    //     productId,
+    //     positionId,
+    //     sequencerSignature,
+    //     owedFee,
+    //     toReturnFee
+    //   );
 
     //   // Get the latest burn request ID
-    //   const requestId = await popTrading.nextBurnRequestId();
+    //   let requestId = await popTrading.nextBurnRequestId();
+
+    //   requestId = requestId.toString() - 1;
 
     //   // Get the burn request associated with the request ID
     //   const burnRequest = await popTrading.burnRequestIdToStructure(requestId);

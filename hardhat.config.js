@@ -68,8 +68,8 @@ module.exports = {
       gasPrice: 800000000000,
       timeout: 999999,
     },
-    matictest: {
-      url: "https://matic-mumbai.chainstacklabs.com/",
+    mumbai: {
+      url: "https://rpc.ankr.com/polygon_mumbai",
       accounts: [process.env.private_key],
       timeout: 999999,
     },
