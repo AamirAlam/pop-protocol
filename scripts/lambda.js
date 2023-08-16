@@ -159,3 +159,4 @@ function PerpetualOptionsProtocol(startPrice, endPrice, arrayLength) {
 // // testPerpetuals.priceFeed(1.2, 0.5);
 
 module.exports = { PerpetualOptionsProtocol };
+//a
