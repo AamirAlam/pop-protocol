@@ -6,6 +6,7 @@ require("dotenv").config();
 require("@openzeppelin/hardhat-upgrades");
 require("@nomiclabs/hardhat-etherscan");
 require("@nomiclabs/hardhat-solhint");
+require("dotenv").config();
 
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
@@ -14,12 +15,11 @@ require("@nomiclabs/hardhat-solhint");
 module.exports = {
   etherscan: {
     apiKey: {
-      scrollSepolia: "WPDBQAUENJ3I3JTDIJNV8AMF5F7G6F926N",
-      arbitrumGoerli: "CC5V3EGGSA1WYTM152F75BIVB33WN7FT3V",
-      sepolia: "36QV5RR1WHHYWBH81P4V3KY2DKCZ7RR4ZH",
-      polygon: "3D8B45QBXTFRGM1FV7D5GCXQRZHEIA59IZ",
+      scrollSepolia: process.env.ETHERSCAN_SCROLL,
+      arbitrumGoerli: process.env.ETHERSCAN_ARB,
+      sepolia: process.env.ETHERSCAN_SEPOLIA,
+      polygon: process.env.ETHERSCAN_POLYGON,
     },
-    //  "36QV5RR1WHHYWBH81P4V3KY2DKCZ7RR4ZH", // "2X7YUM8RI1H8JM3BCSAEFQ2SH5V34QVRDA",
     customChains: [
       {
         network: "scrollSepolia",
