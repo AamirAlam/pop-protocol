@@ -4,6 +4,7 @@
   "scripts": {
     "test": "npx hardhat test",
     "compile": "npx hardhat compile",
+<<<<<<< Updated upstream
     "deploy": "hardhat run scripts/deployAccumulation.js --network matictest",
     "deploy-test": "hardhat run scripts/0_deployAndTestTrading.js",
     "deploy-accumulation": "hardhat run --network matictest scripts/deployAccumulation.js",
@@ -11,9 +12,29 @@
     "verify-contract-faucet": "hardhat verify --contract contracts/ERC20Faucet.sol:FaucetToken --network matictest 0xE118429D095de1a93951c67D04B523fE5cbAB62c",
     "verify-contract-sleep": "hardhat verify --contract contracts/ERC20Sleep.sol:SleepToken --network matictest 0xb94d207a3fBdb312cef2e5dBEb7C22A76516BE37",
     "verify-contract-accumulation": "hardhat verify --network matictest 0x88f07B2eEE714bc2133eA9F973E76c9724b66042 0xE118429D095de1a93951c67D04B523fE5cbAB62c 0xE592427A0AEce92De3Edee1F18E0157C05861564",
+=======
+    "deploy-mocks": "npx hardhat run  --network polygon scripts/deployMocks.js",
+    "verify-feeder": "npx hardhat run  --network polygon scripts/verifyFeeder.js",
+    "deploy-aggregator": "npx hardhat run  --network scrollSepolia scripts/deployAggregator.js",
+    "verify-aggregator": "npx hardhat run  --network scrollSepolia scripts/verifyAggregator.js",
+    "deploy-token": "npx hardhat run  --network mumbai scripts/deployToken.js",
+    "deploy-proxy": "npx hardhat run  --network goerli scripts/deployProxy.js",
+    "verify-proxy": "npx hardhat run  --network goerli scripts/verifyToken.js",
+    "verify-mocks": "hardhat run  --network polygon scripts/verifyMocks.js",
+    "verify-aaveOracle": "hardhat run  --network mumbai scripts/verifyAaveOracle.js",
+    "verify-lendingPool": "hardhat run  --network mumbai scripts/verifyLendingPool.js",
+    "deploy-lendingPoolAddressProvider": "hardhat run  --network mumbai scripts/deployLendingPoolAddressProvider.js",
+    "verify-lendingPoolAddressProvider": "hardhat run  --network mumbai scripts/verifyLendingPoolAddressProvider.js",
+    "add-products": "hardhat run  --network mumbai scripts/addProducts.js",
+    "request-mint": "hardhat run  --network mumbai scripts/requestPosition.js",
+    "sequencer-mint": "hardhat run  --network mumbai scripts/mintSeq.js",
+    "request-burn": "hardhat run  --network mumbai scripts/requestBurn.js",
+    "supply": "hardhat run  --network mumbai scripts/supply.js",
+>>>>>>> Stashed changes
     "clean": "hardhat clean"
   },
   "devDependencies": {
+    "@gelatonetwork/relay-context": "^3.2.0",
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.0",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
     "@nomicfoundation/hardhat-toolbox": "^2.0.2",
@@ -50,6 +71,7 @@
     "web3": "^1.5.1"
   },
   "dependencies": {
+    "@api3/contracts": "^0.12.0",
     "@chainlink/contracts": "^0.4.0",
     "@nomiclabs/hardhat-solhint": "^3.0.0",
     "@openzeppelin/contracts": "^4.8.3",
